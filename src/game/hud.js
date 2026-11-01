@@ -6,6 +6,7 @@ import * as THREE from 'three'
 // Cera no canto de baixo à direita; o que dá para fazer com E/A (descansar, pegar a cera) no meio de baixo.
 // Sobre o alvo travado (DESIGN 8, item 11): barra de vida dele e, embaixo, a de postura (dourada, enche do meio para as pontas;
 // cheia = de joelhos). "Postura enchendo = falta pouco".
+// Chefe (DESIGN 8, item 12): barra grande embaixo, com o nome, a vida (com o pedaço perdido) e a postura. boss(e) mostra; boss(null) tira.
 const _v = new THREE.Vector3()
 
 export function CreateHud(tune) {
@@ -15,7 +16,20 @@ export function CreateHud(tune) {
   const tb = $('#target-bar'), tbFill = tb.querySelector('.fill'), tbPost = tb.querySelector('.posture')
   const gourd = $('#items .gourd'), bread = $('#items .bread'), danger = $('#danger')
   const cera = $('#cera'), ceraN = cera.querySelector('b'), prompt = $('#prompt')
+  const bb = $('#boss'), bbName = bb.querySelector('.name'), bbFill = bb.querySelector('.fill'), bbLag = bb.querySelector('.lag'), bbPost = bb.querySelector('.posture')
   let last = '', lag = 1, lagWait = 0, lastItems = '', shown = null, lastPrompt = ''
+  let boss = null, bLag = 1, bWait = 0
+  // barra do chefe: o pedaço perdido espera 0,6 s e desce (como a do jogador); trocou de fase: enche de novo
+  function bossBar(dt) {
+    if (!boss) return
+    const h = Math.max(0, boss.hp) / boss.maxHp
+    if (h < bLag) { if ((bWait -= dt) <= 0) bLag = Math.max(h, bLag - dt * 0.6) } else { bLag = h; bWait = 0.6 }
+    if (bbName.textContent !== boss.name) bbName.textContent = boss.name
+    bbFill.style.width = `${h * 100}%`
+    bbLag.style.width = `${bLag * 100}%`
+    bbPost.style.width = `${(100 * Math.min(boss.posture || 0, boss.maxPosture)) / boss.maxPosture}%`
+    bbPost.classList.toggle('broken', boss.state === 'broken')
+  }
   // cera: o número conta até o valor (ganhou: sobe rolando; perdeu: cai na hora)
   function counter(dt, p) {
     if (shown === null || p.cera < shown) shown = p.cera
@@ -57,9 +71,10 @@ export function CreateHud(tune) {
       }
       items(p)
       counter(dt, p)
+      bossBar(dt)
       // barra sobre o alvo travado (só quem tem vida: o boneco não tem)
       const e = p.lock
-      if (!e || !e.maxHp || e.dead) { tb.style.display = 'none'; return }
+      if (!e || !e.maxHp || e.dead || e.boss) { tb.style.display = 'none'; return } // o chefe tem a barra grande
       _v.set(e.x, (e.y || 0) + 2.15, e.z).project(cam)
       tb.style.display = 'block'
       tb.style.left = `${((_v.x + 1) / 2) * innerWidth}px`
@@ -84,5 +99,6 @@ export function CreateHud(tune) {
     },
     // pedaço perdido volta a ficar cheio (renasceu)
     reset() { lag = 1 },
+    boss(e) { boss = e; bLag = 1; bb.classList.toggle('on', !!e) },
   }
 }

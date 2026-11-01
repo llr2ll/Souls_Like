@@ -113,6 +113,19 @@ Cada PR acrescenta os itens dele aqui.
 | 96 | **Atalho 1**: na rua de cima, no vão entre a casa do ferreiro (2 andares) e a vizinha, ache o portão no muro | "Tirar a tranca do portão": abre e dá direto na rua de baixo (perto da fogueira). Do lado da rua de baixo: "Não abre deste lado" | ☐ |
 | 97 | **Anaco de cabaça**: suba a escada da casa do ferreiro | Um brilho num móvel lá em cima: "Anaco de cabaça" — a cabaça passa a ter 5 goles | ☐ |
 | 98 | **Atalho 3**: no souto, junto ao muro sul (perto do hórreo) | "Baixar a escada do hórreo": abre a passagem para a rua de cima. De baixo: "Alto demais. Não dá para subir daqui." | ☐ |
+| 99 | **Chefe (S11), atalho de teste**: abra o jogo com `?castro` no fim do endereço | "Teste do chefe": você está na frente da névoa do castro. Esse atalho tem save próprio (o seu save de verdade não muda) | ☐ |
+| 100 | **Atravessar a névoa**: E (ou A) | Você entra no castro; atrás de você a abertura fecha com névoa. Música de gaita e bombo. Barra grande embaixo: "A Serpe" | ☐ |
+| 101 | **Bote**: a serpe ergue a cabeça e sibila | Role para o lado no fim do sibilo. Depois do bote a cabeça fica no chão um instante: bata nela (dói mais) | ☐ |
+| 102 | **Rabada**: o rabo levanta e chocalha | Role para longe, ou fique colado na cabeça dela (perto não pega) | ☐ |
+| 103 | **Enroscar**: fique colado no corpo dela uns segundos | Poeira levanta do corpo: saia rolando antes de ela apertar | ☐ |
+| 104 | **Aparar o bote** (Shift+direito / LT na hora da mordida) | "Tlin", a postura dourada sobe um quarto. Cheia: a cabeça cai no chão 3 s — golpe leve perto da cabeça = crítico | ☐ |
+| 105 | **Troca de fase**: tire toda a vida da serpe | Ela vira pedra (estalo, tremor), a música acelera (zanfona e alaúde) e a Moura dourada sai: "A Moura" | ☐ |
+| 106 | **Fuso**: a Moura gira o fuso | Três estocadas seguidas: segure o escudo ou role para trás. A última dá para aparar | ☐ |
+| 107 | **Fio de ouro**: ela ergue os braços, linhas douradas no chão | Saia de cima da linha do meio (fique entre duas linhas ou role para o lado) antes de elas subirem | ☐ |
+| 108 | **Encanto**: ela some numa fumaça dourada | Um brilho com sinos aparece atrás de você: é onde ela volta. Role para longe dele | ☐ |
+| 109 | **Morrer no chefe** | Volta no ✝ do Castro; a música para; a serpe dorme de novo, com a vida cheia | ☐ |
+| 110 | **Vencer** | "A névoa se abre — Fim da demo" e um acorde no fim da música. A névoa da entrada some e dá para sair andando. No jogo de verdade (sem `?castro`), vencido ele não volta, nem fechando a página | ☐ |
+| 111 | **FPS no chefe** | Anote o FPS na luta (a serpe tem 18 gomos) | ☐ |
 ## Anotar o FPS
 O FPS aparece em verde no canto de cima, à direita. Anote depois de 1 minuto andando pela arena.
 

@@ -56,11 +56,14 @@ npm run build    # gera dist/ (para hospedar)
      S10 (+50 s no vale) trasno rouba e foge, matá-lo devolve a cera; fondeiro (escudo segura, sem escudo acerta, rolar escapa);
      Lobishome derruba com o salto, uiva (2 trasnos), morre, não volta no "descanso" nem no save, os chamados somem; atalhos 1 e 3
      (fechado por fora, abre do lado certo, passa); anaco no andar de cima (+1 gole).
+     S11 (+70 s no vale) o chefe: atravessa a névoa; robô rola no fim de cada aviso e pune na janela; apara o bote até a postura
+     quebrar e dá o crítico na cabeça; a serpe vira pedra e a moura sai; morre na fase 2 (o chefe volta a dormir, fase 1, vida
+     cheia); entra de novo e vence; a névoa some; sai andando; salva e carrega.
      **PR de organização tem de dar igual.** PR que muda a jogabilidade de propósito: `npm run check -- --update-sim` e dizer isso na descrição.
      Cada PR de jogabilidade acrescenta a sua cena ao roteiro. `SIM_TRACE=arquivo node scripts/sim.mjs` grava o rastro quadro a quadro.
 - `npm run smoke` — teste automático (~1 min). Compila, sobe a página na porta **5199**, abre no Chromium sem tela, anda com o teclado,
   joga com um controle de mentira (`navigator.getGamepads` trocado) — isso tudo na arena (`?arena`) —, depois abre o vale e atravessa
-  a ponte, e **falha se aparecer qualquer `console.error`** ou erro de página.
+  a ponte, e por fim abre `?castro`, atravessa a névoa e confere a barra do chefe. **Falha se aparecer qualquer `console.error`** ou erro de página.
   Capturas e log em `smoke/` (versionados: o PR mostra as capturas). O smoke usa a versão compilada: o que é só do `npm run dev` (tecla T) fica de fora.
   Sem acesso ao download do Playwright: `SMOKE_CHROME=/usr/bin/google-chrome node scripts/smoke.mjs` usa um Chrome já instalado
   (no Windows: `$env:SMOKE_CHROME="C:\Program Files\Google\Chrome\Application\chrome.exe"; node scripts/smoke.mjs`).
@@ -95,12 +98,16 @@ src/game/                 este jogo
   game.js                 estado e regras (sem desenhar: o replay roda isto sem navegador): movimento, golpes, escudo, cura, dano
   progress.js             cruceiros (descansar), cera, vela da morte e save (o que entra no save e como volta)
   world/candle.js         velinhas do cruceiro (acendem no 1º descanso) e a vela da morte (com facho de luz)
-  hud.js                  página, não 3D: vida, fôlego, vida e postura do alvo travado, placar (cabaça, pão), borda vermelha
+  hud.js                  página, não 3D: vida, fôlego, vida e postura do alvo travado, placar (cabaça, pão), borda vermelha,
+                          barra grande do chefe (nome, vida, postura)
   enemies/enemy.js        inimigo genérico: vê, geme, aproxima, avisa, golpeia, recua, espera, tropeça, morre, volta para casa
   enemies/romeiro.js      Romeiro perdido: humanoide do survivor + bordão e foice, poses da pancada e dos dois cortes
   enemies/trasno.js       trasno: humanoide em escala 0,55 com gorro; salta, rouba cera e foge
   enemies/fondeiro.js     fondeiro: funda que gira (aviso) e pedra; de perto chuta e foge
   enemies/lobishome.js    Lobishome (elite, não renasce): pelagem, cabeça de lobo; zarpaço duplo, salto que derruba, uivo
+  enemies/castro.js       chefe do castro (não usa o enemy.js): a Serpe (cabeça + 18 gomos que seguem o rastro; bote, rabada,
+                          enroscar) vira pedra e a Moura sai (humanoide dourado; fuso, fio de ouro, encanto)
+  audio/music.js          música do chefe, sintetizada: gaita + bombo (fase 1); zanfona, alaúde e pandeireta (fase 2)
   fx/trail.js             rastro da lâmina (só no instante de dano)
   fx/lock-mark.js         marca do alvo travado (círculo que pulsa, visível através das coisas)
   world/dummy.js          boneco de treino (pisca branco e balança ao levar golpe; não morre)
@@ -125,6 +132,9 @@ src/game/                 este jogo
   Inimigos: `enemy-alert` (gemido), `enemy-warn` ({ e, name }: som próprio de cada golpe), `enemy-swing`, `enemy-stagger`, `enemy-death`.
   S10: `stone`, `stone-wall`, `enemy-land` (baque do salto), `cera-stolen`, `cera-back`, `summon` (fumaça), `knockdown`.
   Som de aviso por golpe em `main.js` (`WARN`): risadinha (salto do trasno), zunido (funda), uivo etc. (receitas novas no `sfx.js`).
+  S11 (`WireBoss()` em `main.js`): `boss-start` (barra grande + música), `boss-warn` ({ e, name, x?, z? }: sibilo, chocalho, sinos…),
+  `boss-strike`, `boss-dust` (poeira do enroscar), `boss-phase` (pedra rachando, tremor `juice.*.boss`, "A Moura", música fase 2),
+  `boss-end` (música desce com um acorde maior; "A névoa se abre — Fim da demo"), `fog-enter`, `fog-lift` (do `progress.js`).
   `use` ({ p, what: 'drink' | 'eat' }) → gole/mastigar; `healed` → sininhos + anel dourado; `use-lost` e `use-empty` → som seco
   (vazio também avisa "A cabaça está vazia").
   Progresso (`progress.js` → `WireProgress()` em `main.js`): `rest` ({ first }: "Vela acesa" no 1º), `rest-denied`, `cera` (inimigo
@@ -207,7 +217,9 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
   Inimigos acompanham a altura do chão (`e.y = GroundAt`).
 - Itens (`map.items`): `bread` (+1 pão) ou `note` (achado: papel com título e texto na tela). Pegos não voltam (save: `pegos`).
   Atalhos (`map.shortcuts`): alavanca (`lever`) abre o portão (`gate`); perto do lado de fora (`outside`): "Não abre deste lado".
-  Save: `atalhos`. Névoa (`map.fogs`): colisor + aviso; o chefe chega no S11.
+  Save: `atalhos`. Névoa (`map.fogs`): colisor; com `boss`, E/A (só do lado de fora) põe o jogador em `inside` e acorda o chefe
+  (`e.awaken(p)`); enquanto ele está acordado, `behind` (névoa mais baixa na abertura da muralha) fecha a saída. Chefe vencido:
+  `lift()` desfaz a névoa (e no load, na hora). Sem chefe no mapa (o replay do S9): só avisa.
 - Inimigo genérico (S10): cada golpe pode ter `leap` (salto, com altura `leapH`), `projectile` (pedra: `game.js` · `stones`; o escudo de
   frente segura; aparar pedra conta como bloqueio; parede para), `steal` (rouba e foge), `flee` (foge depois), `summon` (chama ajuda,
   uma vez por luta; os chamados têm `temp` e somem no próximo reset). `tune.needSight` (só atira vendo), `tune.unique` (vencido não
@@ -254,6 +266,16 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
 - Casas: a porta fica na frente (+z, virada para a câmera) quando `ry = 0`. Na arena, a casa `stone2` está em (-8, -8) e a porta em (-8, -4,6).
 - O replay só fixa o sorteio feito por código de `src/` (o Vite e o Three.js também sorteiam).
 - `window.__game` existe só no `npm run dev` (testes e depuração).
+- Chefe (S11, `enemies/castro.js`): não usa o `enemy.js`; tem `boss: true` (câmera afasta até `camera.lockMaxBoss`; barra grande, não a
+  de cima do alvo), `unique`. Dorme (`dormant`) até `awaken`. Fase 1: `e.bodies` (círculos dos gomos) empurram o jogador
+  (`separate()`) e `e.hitPoint(x, z)` diz qual gomo o golpe pega (o `strike` do `game.js` usa). Não tropeça com golpe: só a postura
+  cheia o derruba (cabeça no chão / de joelhos, crítico como sempre). Golpes de área (rabada, enroscar, fio) vão com o 6º argumento de
+  `ctx.hurt` (`area`): não se aparam (aparar de frente conta como bloqueio). Vida 0 na fase 1 = `transform` (não morre). Cabeça e
+  moura não saem da muralha: raio 10,6 em volta de onde dorme + `resolve()` contra as pedras e as pallozas. Morreu o jogador: `reset()`
+  = dorme de novo, fase 1. Música: `CreateMusic(BALANCE.music)`, um relógio de 60 ms agenda 0,3 s à frente (só no navegador).
+- `?castro` (só no vale): começa na frente da névoa do chefe, `home` = ✝ do Castro, save próprio (`camino-das-animas-save-castro`)
+  apagado a cada abertura. Para o dono testar o chefe e para o smoke.
+- Arquivos com fim de linha CRLF (ex.: `scripts/smoke.mjs`, `CLAUDE.md`): ao trocar texto por script, converta os `\n` da busca.
 - Teclas do motor copiado que continuam valendo: **M** liga/desliga o som.
 
 ## Histórico de PRs
@@ -297,3 +319,7 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
   que o escudo segura; chute e foge), Lobishome no souto (zarpaço duplo, salto forte que derruba, uivo que chama 2 trasnos; 400 de
   cera; não renasce). Atalho 1 (portão do quintal do ferreiro, abre pela rua de cima) e 3 (escada do hórreo, desce do souto). Anaco
   de cabaça no andar de cima da casa do ferreiro (+1 gole). `zombie-model.js`: `head` e `skin`. `player.js`: cai com `p.down`.
+- **s11-chefe-castro (S11)** — chefe do castro (`enemies/castro.js`): a Serpe (bote que deixa a cabeça no chão ×1,5, rabada com
+  chocalho, enroscar com poeira; aparar o bote enche um quarto da postura) vira pedra e a Moura sai (fuso de 3 estocadas, fio de ouro
+  no chão, encanto que volta por trás marcado por um brilho). Névoa: E/A entra, a abertura fecha atrás, vencido ela some (save).
+  Música sintetizada (`audio/music.js`), barra grande do chefe, "Fim da demo". Sons novos no `sfx.js`. `?castro` = teste do chefe.

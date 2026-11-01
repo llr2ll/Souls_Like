@@ -1,24 +1,29 @@
 [0s] 1/3 compilando o jogo…
 [1s] 2/3 subindo a página…
 [2s] 3/3 abrindo o jogo no navegador sem tela…
-[5s]    arena de teste desenhando (FPS: 3)
-[5s]    jogando 40 s…
-[5s]    captura 01-inicio.jpg
-[8s]    captura 02-golpe.jpg
-[11s]    captura 03-trava.jpg
-[15s]    captura 04-cruceiro.jpg
-[17s]    captura 05-rolando.jpg
-[26s]    captura 06-casa.jpg
-[28s]    captura 07-controle.jpg
-[32s]    captura 08-folego.jpg
-[40s]    captura 09-romeiro.jpg
-[42s]    captura 10-escudo.jpg
-[46s]    captura 11-cabaca.jpg
-[47s]    captura 12-fim.jpg
-[49s]    vale desenhando (FPS: 1)
-[49s]    captura 13-vale-largada.jpg
-[52s]    captura 14-vale-achado.jpg
-[58s]    captura 15-vale-ponte.jpg
-[64s]    captura 16-vale-vila.jpg
+[4s]    arena de teste desenhando (FPS: 3)
+[4s]    jogando 40 s…
+[4s]    captura 01-inicio.jpg
+[7s]    captura 02-golpe.jpg
+[10s]    captura 03-trava.jpg
+[14s]    captura 04-cruceiro.jpg
+[16s]    captura 05-rolando.jpg
+[25s]    captura 06-casa.jpg
+[27s]    captura 07-controle.jpg
+[31s]    captura 08-folego.jpg
+[38s]    captura 09-romeiro.jpg
+[40s]    captura 10-escudo.jpg
+[44s]    captura 11-cabaca.jpg
+[45s]    captura 12-fim.jpg
+[46s]    vale desenhando (FPS: 1)
+[47s]    captura 13-vale-largada.jpg
+[50s]    captura 14-vale-achado.jpg
+[56s]    captura 15-vale-ponte.jpg
+[62s]    captura 16-vale-vila.jpg
+[64s]    castro desenhando (FPS: 1)
+[64s]    captura 17-castro-nevoa.jpg
+[69s]    captura 18-chefe.jpg
+[69s]    barra do chefe: A Serpe
+[73s]    captura 19-chefe-luta.jpg
 
 PASSOU

@@ -11,7 +11,7 @@ export function CreateCamera(aspect, tune) {
   const shakes = [] // tremores ativos: { power, time, t }
   const base = Math.hypot(tune.height - tune.lookY, tune.back) // distância normal (~13 m)
   const sinPitch = (tune.height - tune.lookY) / base
-  let first = true, zoom = 1, punch = 0, punchT = 0, punchTime = 1
+  let first = true, zoom = 1, punch = 0, punchT = 0, punchTime = 1, boss = false
 
   // quanto afastar para os pontos caberem na tela em volta do foco (fx, fz)
   function fit(fx, fz, pts) {
@@ -21,7 +21,7 @@ export function CreateCamera(aspect, tune) {
       need = Math.max(need, (Math.abs(q.x - fx) + tune.lockMargin) / (t * cam.aspect)) // largura
       need = Math.max(need, ((Math.abs(q.z - fz) + tune.lockMargin) * sinPitch) / t) // profundidade (o chão está inclinado)
     }
-    return Math.min(tune.lockMax, Math.max(base, need)) / base
+    return Math.min(boss ? tune.lockMaxBoss : tune.lockMax, Math.max(base, need)) / base
   }
 
   function update(dt, p, target) {
@@ -36,6 +36,7 @@ export function CreateCamera(aspect, tune) {
     lead.z += (p.vz * want - lead.z) * kl
     let tx = p.x + lead.x, tz = p.z + lead.z, wantZoom = 1
     if (target) {
+      boss = !!target.boss
       tx += (target.x - p.x) * tune.lockBias; tz += (target.z - p.z) * tune.lockBias
       wantZoom = fit(tx, tz, [p, target])
     }

@@ -2,7 +2,8 @@
 // abre num navegador sem tela, bate no boneco de treino (cliques, Shift + clique), trava e troca de alvo (Q, roda), anda com o teclado
 // (WASD; Espaço segurado corre, tocado rola), entra na casa, joga com um
 // controle de mentira (stick, segurar e tocar B, todos os botões, desconectar) — tudo isso na arena de teste (?arena) —,
-// depois abre o vale da demo e atravessa a ponte. FALHA se aparecer erro no console.
+// depois abre o vale da demo e atravessa a ponte, e por fim o castro (?castro): atravessa a névoa e o chefe acorda (barra grande).
+// FALHA se aparecer erro no console.
 // Capturas e log ficam em smoke/ (versionados: o PR mostra as capturas).
 // Sem placa de vídeo o jogo roda a poucos FPS: serve para pegar erro de carregar/iniciar/teclas, não bugs de longo prazo.
 // SMOKE_CHROME=/caminho/do/chrome usa um Chrome já instalado (quando o download do Playwright não é possível).
@@ -165,6 +166,21 @@ async function PlayValley(page) {
   await shot('16-vale-vila.jpg')
 }
 
+// o chefe (?castro começa na frente da névoa): atravessa, trava nele, espera um golpe; a barra grande tem de aparecer
+async function PlayBoss(page) {
+  const k = page.keyboard
+  const shot = async (name) => { await page.screenshot({ path: path.join(OUT, name), type: 'jpeg', quality: 70 }); note(`   captura ${name}`) }
+  await shot('17-castro-nevoa.jpg')
+  if (!(await page.textContent('#prompt')).includes('névoa')) fail('na frente da névoa do castro não aparece "Atravessar a névoa"')
+  await k.press('e'); await wait(1500)
+  await k.press('q'); await wait(2500)
+  await shot('18-chefe.jpg')
+  if (!(await page.isVisible('#boss'))) fail('a barra do chefe não apareceu depois de atravessar a névoa')
+  else note(`   barra do chefe: ${await page.textContent('#boss .name')}`)
+  await wait(4000)
+  await shot('19-chefe-luta.jpg')
+}
+
 // controle de mentira: o navegador sem tela não tem controle, e o jogo só lê navigator.getGamepads() a cada quadro
 function FakeGamepad() {
   const pad = { id: 'Controle de teste (STANDARD GAMEPAD)', index: 0, connected: true, mapping: 'standard', timestamp: 0,
@@ -209,6 +225,16 @@ try {
   await vale.waitForFunction(() => /FPS/.test(document.querySelector('#fps-element')?.textContent || ''), null, { timeout: 90000 })
   note(`   vale desenhando (${await vale.textContent('#fps-element')})`)
   await PlayValley(vale)
+  await vale.close()
+
+  // o chefe do castro, direto pelo atalho de teste
+  const chefe = await browser.newPage({ viewport: { width: 960, height: 540 } })
+  chefe.setDefaultTimeout(120000)
+  watch(chefe)
+  await chefe.goto(WEB + '?castro')
+  await chefe.waitForFunction(() => /FPS/.test(document.querySelector('#fps-element')?.textContent || ''), null, { timeout: 90000 })
+  note(`   castro desenhando (${await chefe.textContent('#fps-element')})`)
+  await PlayBoss(chefe)
 } catch (e) {
   fail(`o teste parou: ${e.message.split('\n')[0]}`)
   log.push(e.stack || String(e))

@@ -134,6 +134,44 @@ export const BALANCE = {
     },
   },
 
+  // Chefe do castro (DESIGN 5): a Serpe (fase 1) e a Moura (fase 2). warn = aviso (s), strike = golpe (s), recover = janela (s)
+  castro: {
+    hp: 400, // vida por fase (800 no total)
+    cera: 1500,
+    transform: 2.5, // a serpe vira pedra e a moura sai dela (s)
+    ending: { delay: 3.5, time: 9 }, // vencida: "Fim da demo" aparece depois de delay s e fica time s
+    serpe: {
+      name: 'A Serpe', posture: 200, broken: 3, parryBreak: 0.25, // quebrada: a cabeça fica no chão 3 s (crítico na cabeça)
+      speed: 2.4, turn: 2.2, keep: 5, // velocidade, giro (rad/s), distância que ela tenta manter
+      segs: 18, spacing: 0.75, // gomos do corpo e distância entre eles (m)
+      wait: [1.0, 1.8], // pausa entre golpes (s)
+      groundMult: 1.5, // depois do bote, a cabeça no chão leva ×1,5
+      squeezeAfter: 2, // colado no corpo dela por tanto tempo (s): ela aperta
+      attacks: {
+        bite: { warn: 0.7, strike: 0.22, recover: 1.2, dmg: 30, strong: true, reach: 7.5, range: 1.3 }, // bote: ergue a cabeça e sibila
+        tail: { warn: 0.8, strike: 0.35, recover: 0.8, dmg: 24, inner: 1.6, outer: 4.6 }, // rabada: o rabo chocalha; perto dela (dentro) não pega
+        squeeze: { warn: 0.9, strike: 0.25, recover: 1.0, dmg: 35, strong: true, range: 2.4 }, // enroscar: o corpo aperta e levanta poeira
+      },
+    },
+    moura: {
+      name: 'A Moura', posture: 160, broken: 3, parryBreak: 0.25,
+      speed: 2.6, turn: 5, reach: 2.4, wait: [0.8, 1.4], r: 0.45, scale: 1.1,
+      attacks: {
+        fuso: { warn: 0.5, warnTurn: 180, hits: [0.12, 0.12, 0.12], gap: 0.22, dmg: 12, range: 2.6, arc: 50, recover: 0.9 }, // 3 estocadas
+        fio: { warn: 0.9, strike: 0.25, recover: 1.0, dmg: 26, strong: true, lines: 3, gap: 2.2, length: 16, width: 0.55 }, // fio de ouro
+        encanto: { vanish: 0.4, mark: 0.6, strike: 0.15, recover: 1.2, dmg: 30, range: 2.6, arc: 100, behind: 1.8 }, // some e volta atrás
+      },
+    },
+  },
+
+  // Música do chefe (DESIGN 8): fase 1 gaita e bombo; fase 2 entram zanfona, alaúde e pandeireta. Fora do chefe: sem música
+  music: {
+    vol: 0.3, // volume (0–1)
+    bpm: [76, 100], // andamento da fase 1 e da fase 2 (batidas por minuto)
+    fade: 1.5, // sobe ao começar e desce ao morrer (s)
+    end: 5, // vencida: desce devagar (s)
+  },
+
   // Levar golpe (DESIGN 3.3)
   hurt: {
     stagger: 0.35, // tropeço: tanto tempo (s) sem poder agir
@@ -188,6 +226,7 @@ export const BALANCE = {
     lockBias: 0.4, // onde olha: 0 = no jogador, 1 = no alvo
     lockMargin: 2.5, // folga em volta dos dois (m)
     lockMax: 17, // distância máxima da câmera (m; a normal é ~13)
+    lockMaxBoss: 19.5, // travado num chefe, pode afastar mais (DESIGN 3.6: 18–20 m)
     zoomFollow: 3, // suavidade do afastar/aproximar
   },
 
@@ -197,11 +236,11 @@ export const BALANCE = {
     hitStop: { light: 0.03, heavy: 0.07, critical: 0.12 },
     zoom: { critical: 0.05, time: 0.4 }, // golpe crítico: a câmera chega 5% mais perto e volta em 0,4 s (DESIGN 8, item 6)
     // tremor de tela: quanto a câmera balança (m) em cada caso, e por quanto tempo (s). scale 0 desliga todos. Leve não treme
-    // hurt = levou golpe; hurtStrong = levou golpe forte
-    shake: { scale: 1, time: 0.25, heavy: 0.1, critical: 0.18, hurt: 0.08, hurtStrong: 0.15, guardBreak: 0.12 },
+    // hurt = levou golpe; hurtStrong = levou golpe forte; boss = a serpe vira pedra (S11)
+    shake: { scale: 1, time: 0.25, heavy: 0.1, critical: 0.18, hurt: 0.08, hurtStrong: 0.15, guardBreak: 0.12, boss: 0.3 },
     // vibração do controle: [motor forte, motor fraco (0 a 1), duração (ms)]. scale 0 desliga
     rumble: { scale: 1, light: [0.05, 0.3, 50], heavy: [0.35, 0.5, 110], critical: [0.7, 0.8, 200], hurt: [0.45, 0.4, 130], hurtStrong: [0.7, 0.6, 200],
-      block: [0.2, 0.35, 80], parry: [0.3, 0.9, 90], guardBreak: [0.8, 0.6, 250] },
+      block: [0.2, 0.35, 80], parry: [0.3, 0.9, 90], guardBreak: [0.8, 0.6, 250], boss: [0.6, 0.4, 600] },
     trail: 0.12, // rastro da lâmina: some em tanto tempo (s). Só aparece no instante em que a lâmina machuca
   },
 
@@ -267,6 +306,8 @@ export const BALANCE = {
         { kind: 'fondeiro', x: 30, z: -53, ry: 0 }, { kind: 'fondeiro', x: 44, z: -53.5, ry: 0 },
         { kind: 'trasno', x: -20, z: -30, ry: 0 }, { kind: 'trasno', x: -8, z: -33, ry: 0.5 }, { kind: 'trasno', x: -27, z: -40, ry: -0.5 },
         { kind: 'lobishome', x: -14, z: -44, ry: 0 },
+        // S11: o chefe, enroscado no meio do castro (acorda quando você atravessa a névoa)
+        { kind: 'castro', x: 32, z: -71, ry: 0 },
       ],
       // itens no chão (E/A para pegar): pão de milho (cura) e achados (texto curto). Pegou: não volta (fica no save)
       items: [
@@ -299,8 +340,9 @@ export const BALANCE = {
         { id: 'horreo', name: 'escada do hórreo', label: 'Baixar a escada do hórreo', lever: { x: -45.6, z: -17.8 },
           gate: { x: -44, z: -16, w: 4 }, outside: { x: -44, z: -14.2 }, locked: 'Alto demais. Não dá para subir daqui.' },
       ],
-      // névoa na entrada do castro: não passa até o chefe chegar (S11)
-      fogs: [{ id: 'castro', x: 32, z: -56, w: 4 }],
+      // névoa na entrada do castro: E/A atravessa (do lado de dentro, só sai vencendo o chefe). inside = onde você entra
+      // behind = a névoa que fecha a abertura da muralha atrás de você enquanto o chefe está acordado
+      fogs: [{ id: 'castro', x: 32, z: -56, w: 4, boss: 'castro', inside: { x: 32, z: -60.5 }, behind: { x: 32, z: -58, w: 3.4 } }],
     },
   },
 }

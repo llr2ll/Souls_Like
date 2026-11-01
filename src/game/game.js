@@ -9,6 +9,7 @@ import { CreateRomeiro } from './enemies/romeiro'
 import { CreateTrasno } from './enemies/trasno'
 import { CreateFondeiro } from './enemies/fondeiro'
 import { CreateLobishome } from './enemies/lobishome'
+import { CreateCastroBoss } from './enemies/castro'
 import { CreateProgress } from './progress'
 import { BALANCE } from './config/balance'
 
@@ -25,7 +26,7 @@ import { BALANCE } from './config/balance'
 // 'knockdown' (golpe forte derrubou o jogador).
 const DEG = Math.PI / 180
 const wrap = (a) => { a = (a + Math.PI) % (Math.PI * 2); if (a < 0) a += Math.PI * 2; return a - Math.PI }
-const KINDS = { romeiro: CreateRomeiro, trasno: CreateTrasno, fondeiro: CreateFondeiro, lobishome: CreateLobishome }
+const KINDS = { romeiro: CreateRomeiro, trasno: CreateTrasno, fondeiro: CreateFondeiro, lobishome: CreateLobishome, castro: CreateCastroBoss }
 const STONE_GEO = new THREE.DodecahedronGeometry(0.09, 0), STONE_MAT = new THREE.MeshLambertMaterial({ color: 0x8d8f99, flatShading: true })
 const PLAYER_R = 0.45
 
@@ -70,7 +71,7 @@ export function CreateGame(scene, map = BALANCE.maps.arena, world) {
   }
   // inimigos: o jogo (main.js) põe os do mapa; o replay põe na hora da cena dele
   const ctx = {
-    players, sees: (a, b) => sees(a, b), hurt: (p, dmg, dir, by, strong) => hurtPlayer(p, dmg, dir, by, strong),
+    players, sees: (a, b) => sees(a, b), hurt: (p, dmg, dir, by, strong, area) => hurtPlayer(p, dmg, dir, by, strong, area),
     shoot: (e, a, def) => shoot(e, a, def.projectile),
     // o trasno roubou: uma fração da cera vai com ele (matar devolve; descansar antes perde)
     steal(e, p, f) { const n = Math.floor(p.cera * f); if (n <= 0) return; p.cera -= n; e.stolen += n; events.emit('cera-stolen', { e, n }) },
@@ -315,8 +316,9 @@ export function CreateGame(scene, map = BALANCE.maps.arena, world) {
     const d = A.def
     for (const e of targets) {
       if (A.hit.has(e) || e.dead || (A.victim && e !== A.victim)) continue
-      const dx = e.x - p.x, dz = e.z - p.z
-      if (Math.hypot(dx, dz) - e.r > d.range) continue
+      const pt = e.hitPoint ? e.hitPoint(p.x, p.z) : e // a serpe: o gomo mais perto
+      const dx = pt.x - p.x, dz = pt.z - p.z
+      if (Math.hypot(dx, dz) - pt.r > d.range) continue
       const dir = Math.atan2(dx, dz)
       if (Math.abs(wrap(dir - A.a)) > d.arc * DEG) continue
       A.hit.add(e)
@@ -432,6 +434,14 @@ export function CreateGame(scene, map = BALANCE.maps.arena, world) {
       if (d >= min || d < 1e-6) continue
       const push = (min - d) / 2
       a.x -= (dx / d) * push; a.z -= (dz / d) * push; b.x += (dx / d) * push; b.z += (dz / d) * push
+    }
+    // corpo comprido (a serpe): os gomos empurram o jogador (ela não se mexe)
+    for (const e of enemies) {
+      if (!e.bodies || !e.bodies.length) continue
+      for (const p of players.values()) for (const b of e.bodies) {
+        const dx = p.x - b.x, dz = p.z - b.z, d = Math.hypot(dx, dz), min = b.r + PLAYER_R
+        if (d < min && d > 1e-6) { p.x += (dx / d) * (min - d); p.z += (dz / d) * (min - d) }
+      }
     }
   }
 

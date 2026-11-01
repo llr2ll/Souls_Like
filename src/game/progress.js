@@ -8,9 +8,9 @@ import { BALANCE } from './config/balance'
 // - Morrer: a cera vira uma vela acesa no último chão firme; a vela antiga que não foi pega apaga (cera perdida). Salva.
 // - Pegar a vela (E/A perto dela): a cera volta. Salva.
 // - Itens no chão (pão, achado): E/A pega; não voltam. Atalhos: a alavanca abre o portão; do outro lado ele não abre. Salva.
-// - Névoa: não deixa passar (o chefe chega no S11).
+// - Névoa: E/A atravessa para a arena do chefe (de dentro não sai); vencido o chefe, ela se desfaz (e fica assim no save).
 // Avisos: 'rest' ({ p, c, first }), 'rest-denied', 'cera' ({ p, n, e }), 'candle' (vela posta), 'candle-pick', 'candle-lost',
-// 'pickup' ({ p, it }), 'shortcut' ({ p, s }), 'locked' ({ p, s }), 'fog', 'cera-back' (matou o trasno ladrão),
+// 'pickup' ({ p, it }), 'shortcut' ({ p, s }), 'locked' ({ p, s }), 'fog', 'fog-enter', 'fog-lift', 'cera-back' (matou o trasno ladrão),
 // 'save' (os dados do save: o main.js grava no navegador).
 // map = o mapa em jogo (BALANCE.maps.*). world = o que o cenário mexe (portões e alavancas; pode faltar, ex.: na arena)
 export function CreateProgress(scene, enemies, map, world = {}) {
@@ -37,7 +37,7 @@ export function CreateProgress(scene, enemies, map, world = {}) {
       if (dist(s.lever, p) < 1.7) return { kind: 'lever', s }
       if (dist(s.outside, p) < 2.2) return { kind: 'locked', s }
     }
-    for (const f of fogs) if (dist(f, p) < 2.6) return { kind: 'fog', f }
+    for (const f of fogs) if (!lifted(f) && dist(f, p) < 2.6 && p.z > f.z) return { kind: 'fog', f } // só do lado de fora
     for (const it of items) if (!it.taken && (p.lv || 0) === it.lv && dist(it, p) < 1.4) return { kind: 'item', it }
     for (const c of cruceiros) if (dist(c, p) < BALANCE.rest.range) return { kind: 'rest', c }
     return null
@@ -55,7 +55,7 @@ export function CreateProgress(scene, enemies, map, world = {}) {
       events.emit('shortcut', { p, s: it.s })
       save(p)
     } else if (it.kind === 'locked') events.emit('locked', { p, s: it.s })
-    else if (it.kind === 'fog') events.emit('fog', { p, f: it.f })
+    else if (it.kind === 'fog') enterFog(p, it.f)
     else if (it.kind === 'item') {
       take(it.it)
       if (it.it.kind === 'bread') p.bread++
@@ -71,6 +71,19 @@ export function CreateProgress(scene, enemies, map, world = {}) {
     world.gates?.[s.id]?.open(instant)
   }
   function take(it) { it.taken = true; it.view.remove() }
+  // névoa do chefe: atravessa para dentro (de lá não sai até vencer); sem chefe, só avisa
+  const bossOf = (f) => f.boss && enemies.find((e) => e.kind === f.boss)
+  const lifted = (f) => f.boss && beaten.has(f.boss)
+  function enterFog(p, f) {
+    const b = bossOf(f)
+    if (!b || b.dead) { events.emit('fog', { p, f }); return }
+    Object.assign(p, { x: f.inside.x, z: f.inside.z, vx: 0, vz: 0, facing: Math.PI, lock: null })
+    events.emit('fog-enter', { p, f })
+    b.awaken(p)
+  }
+  function liftFog(kind, instant) {
+    for (const f of fogs) if (f.boss === kind) { world.fogs?.find((w) => w.id === f.id)?.lift(instant); if (!instant) events.emit('fog-lift', f) }
+  }
   // inimigo atrás de você e perto: não dá para descansar
   const threatened = (p) => enemies.some((e) => !e.dead && e.target === p && e.state !== 'idle' && e.state !== 'return' && dist(e, p) < BALANCE.rest.enemyNear)
   function refill(p) { p.hp = p.max; p.stamina = p.staminaMax; p.tired = false; p.gourd = p.gourdMax }
@@ -104,9 +117,11 @@ export function CreateProgress(scene, enemies, map, world = {}) {
     if (e.stolen) events.emit('cera-back', { p, n: e.stolen, e })
     e.stolen = 0
     if (n) { p.cera += n; events.emit('cera', { p, n, e }) }
-    if (e.unique) { beaten.add(e.kind); save(p) }
+    if (e.unique) { beaten.add(e.kind); if (e.boss) liftFog(e.kind, false); save(p) }
   }
   function update(dt) {
+    // chefe acordado: a névoa fecha a entrada da arena atrás de você (dormindo ou vencido, abre)
+    for (const f of fogs) if (f.boss) { const b = bossOf(f); world.fogs?.find((w) => w.id === f.id)?.close(!!b && !b.dead && b.state !== 'dormant') }
     for (const c of cruceiros) c.candles.update(dt)
     if (candle) candle.view.update(dt)
     for (const it of items) if (!it.taken) it.view.update(dt)
@@ -134,6 +149,7 @@ export function CreateProgress(scene, enemies, map, world = {}) {
     for (const it of items) if ((d.pegos || []).includes(it.id) && !it.taken) take(it)
     for (const k of d.vencidos || []) beaten.add(k)
     for (const e of enemies) if (e.unique && beaten.has(e.kind) && !e.dead) e.vanish()
+    for (const k of beaten) liftFog(k, true)
     dropCandle()
     if (d.vela) candle = { ...d.vela, y: d.vela.y || 0, view: CreateDeathCandle(scene, d.vela.x, d.vela.z, d.vela.y || 0) }
     refill(p)

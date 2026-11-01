@@ -235,6 +235,16 @@ const S = {
   whir: [34, 0.8, (o, t) => { hiss(o, t, { dur: 0.7, a: 0.55, vol: 0.38, f: 300, f1: 1500, q: 7 }); hiss(o, t, { dur: 0.7, a: 0.6, vol: 0.12, type: 'highpass', f: 2500 }) }],
   howl: [70, 1.5, (o, t) => vocal(o, t, { f: 210, f1: 430, dur: 1.15, a: 0.25, vol: 0.6, form: [600, 1000], rough: 2, breath: 0.3, wob: 5, depth: 0.04 })],
   stone: [20, 0.3, (o, t) => { thud(o, t, 0.3); click(o, t, 900, 0.3) }],
+  // souls-like (S11): sibilo e chocalho da serpe, chão arrastando (enroscar), sinos da moura, pedra rachando (a serpe vira pedra)
+  sibilo: [44, 1, (o, t) => { hiss(o, t, { dur: 0.75, a: 0.12, vol: 0.5, type: 'highpass', f: 3800, q: 0.6 }); hiss(o, t, { dur: 0.7, a: 0.2, vol: 0.25, f: 6200, q: 3 }) }],
+  rattle: [44, 0.9, (o, t) => { for (let i = 0; i < 16; i++) hiss(o, t + i * 0.045, { dur: 0.03, vol: 0.35 - i * 0.012, f: rnd(3500, 5200), q: 3 }) }],
+  scrape: [30, 0.5, (o, t) => hiss(o, t, { dur: 0.4, a: 0.05, vol: 0.45, type: 'lowpass', f: 600, f1: 250, brown: true })],
+  bells: [50, 1.4, (o, t) => { [86, 83, 90, 88].forEach((m, i) => bell(o, t + i * 0.11, midi(m), 0.14, 0.8)) }],
+  crack: [60, 1.8, (o, t) => {
+    for (let i = 0; i < 7; i++) click(o, t + i * rnd(0.08, 0.18), rnd(500, 1300), 0.4)
+    hiss(o, t, { dur: 1.3, a: 0.1, vol: 0.5, type: 'lowpass', f: 900, f1: 150, brown: true })
+    thud(o, t + 1, 0.9)
+  }],
 }
 
 // toca um efeito. o: { x, z, vol, delay, ...parâmetros da receita }
