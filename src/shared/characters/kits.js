@@ -188,6 +188,24 @@ function samurai(holder) {
       [0.75, [0, 0.92, 0.44], BLADE(0, -0.8), { spineX: 0.32, crouch: -0.14 }],
       [1, guardP, guardQ],
     ]),
+    // estocada: recolhe a lâmina na altura da cintura, com o tronco torcido, e empurra reto para a frente
+    thrust: track([
+      [0, guardP, guardQ],
+      [0.38, [-0.18, 1.18, -0.06], BLADE(0.04, 0.06), { spineY: -0.5, spineX: -0.04, crouch: -0.04 }],
+      [0.55, [0.0, 1.22, 0.62], BLADE(0, 0.02), { spineY: 0.35, spineX: 0.2, crouch: -0.12 }],
+      [0.78, [0.0, 1.2, 0.56], BLADE(0, 0), { spineY: 0.28, spineX: 0.16, crouch: -0.1 }],
+      [1, guardP, guardQ],
+    ]),
+    // pesado: ergue acima da cabeça, segura (o aviso para quem olha), desce com o corpo todo e fica embaixo um instante
+    heavy: track([
+      [0, guardP, guardQ],
+      [0.28, [-0.1, 1.95, -0.12], BLADE(0.1, 2.3), { spineX: -0.3, spineY: -0.25, crouch: 0.02 }],
+      [0.44, [-0.08, 2.0, -0.16], BLADE(0.1, 2.45), { spineX: -0.36, spineY: -0.3 }],
+      [0.55, [0.0, 1.25, 0.56], BLADE(0, -0.05), { spineX: 0.45, spineY: 0.05, crouch: -0.2 }],
+      [0.62, [0.0, 0.95, 0.5], BLADE(0, -0.75), { spineX: 0.5, crouch: -0.24 }],
+      [0.8, [0.0, 0.95, 0.48], BLADE(0, -0.7), { spineX: 0.42, crouch: -0.2 }],
+      [1, guardP, guardQ],
+    ]),
   }
   return {
     setWeapon() {},
