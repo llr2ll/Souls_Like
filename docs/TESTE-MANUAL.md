@@ -64,7 +64,13 @@ Cada PR acrescenta os itens dele aqui.
 | 52 | **Aparar cedo ou tarde** | Não apara: ele fica aberto meio segundo (e leva o golpe) | ☐ |
 | 53 | **Postura**: trave nele (Q) e bata 3 vezes seguidas | Sob a barra de vida, uma barra dourada enche a cada golpe; cheia, ele cai de joelhos. Parando de bater, ela esvazia | ☐ |
 | 54 | **Golpe crítico**: com ele de joelhos, chegue perto e clique (ou RB) | Uma estocada funda: a câmera chega perto, a tela treme, tira muito (36). Só um por vez: depois ele levanta | ☐ |
-
+| 55 | **Placar** (S7): olhe o canto de baixo, à esquerda | Cabaça com 4 e pão com 3 | ☐ |
+| 56 | **Beber**: leve um golpe e aperte R (ou X) | Leva a cabaça à boca, cabeça para trás, gole. Logo depois: sininhos, anel dourado no chão, vida sobe. A cabaça mostra 3 e pisca | ☐ |
+| 57 | **Andar bebendo** | Anda bem devagar; não dá para rolar nem bater até terminar | ☐ |
+| 58 | **Golpe no meio do gole**: beba perto do Romeiro e deixe ele acertar antes dos sininhos | Som seco: o gole se perdeu (a cabaça já desceu, a vida não subiu) | ☐ |
+| 59 | **Pão**: aperte F (ou Y) | Mastiga rapidinho e cura um pouco. O pão mostra 2 | ☐ |
+| 60 | **Cabaça vazia**: beba até zerar e aperte de novo | "A cabaça está vazia". Morrendo e voltando ao começo, ela enche de novo | ☐ |
+| 61 | **Pouca vida**: fique com menos de um quarto | Borda vermelha pulsando em volta da tela | ☐ |
 ## Anotar o FPS
 O FPS aparece em verde no canto de cima, à direita. Anote depois de 1 minuto andando pela arena.
 

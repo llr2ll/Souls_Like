@@ -12,7 +12,22 @@ export function CreateHud(tune) {
   const hp = $('#bars .hp'), hpFill = hp.querySelector('.fill'), hpLag = hp.querySelector('.lag')
   const st = $('#bars .stamina'), stFill = st.firstElementChild
   const tb = $('#target-bar'), tbFill = tb.querySelector('.fill'), tbPost = tb.querySelector('.posture')
-  let last = '', lag = 1, lagWait = 0
+  const gourd = $('#items .gourd'), bread = $('#items .bread'), danger = $('#danger')
+  let last = '', lag = 1, lagWait = 0, lastItems = ''
+  // placar dos itens (canto de baixo): cabaça com os goles, pão com a quantidade; pisca ao usar
+  function items(p) {
+    const key = `${p.gourd}/${p.bread}`
+    if (key === lastItems) return
+    const [g0, b0] = (lastItems || key).split('/').map(Number) // primeira vez: sem animação
+    lastItems = key
+    gourd.querySelector('b').textContent = p.gourd
+    bread.querySelector('b').textContent = p.bread
+    gourd.classList.toggle('empty', p.gourd <= 0)
+    bread.classList.toggle('empty', p.bread <= 0)
+    for (const [el, was, now] of [[gourd, g0, p.gourd], [bread, b0, p.bread]]) {
+      if (now !== was) { el.classList.remove('used'); void el.offsetWidth; el.classList.add('used') } // reinicia a animação
+    }
+  }
 
   return {
     update(dt, p, cam) {
@@ -29,7 +44,9 @@ export function CreateHud(tune) {
         st.style.width = `${p.staminaMax * tune.px}px`
         stFill.style.width = `${(100 * Math.max(0, p.stamina)) / p.staminaMax}%`
         st.classList.toggle('tired', p.tired)
+        danger.classList.toggle('on', !p.dead && h < tune.danger) // pouca vida: borda vermelha pulsando
       }
+      items(p)
       // barra sobre o alvo travado (só quem tem vida: o boneco não tem)
       const e = p.lock
       if (!e || !e.maxHp || e.dead) { tb.style.display = 'none'; return }

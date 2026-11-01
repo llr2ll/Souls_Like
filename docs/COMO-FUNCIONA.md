@@ -57,6 +57,8 @@ Exemplos:
 - Escudo: `guard` (velocidade, quanto fôlego cada golpe segurado gasta). Aparo: `parry.window` (maior = mais fácil).
 - Postura: `posture` (quanto tempo até esvaziar) e, no inimigo, `posture` e `broken` (quanto tempo fica de joelhos).
   Golpe crítico: `critical`.
+- Cura: `gourd` (goles, quanto cura, em que instante a cura entra) e `bread`. Andar bebendo: `usingSpeed`.
+  A borda vermelha de pouca vida: `hud.danger`.
 
 ## Como testar
 - Depois de cada PR: siga `docs/TESTE-MANUAL.md` (poucos minutos).
