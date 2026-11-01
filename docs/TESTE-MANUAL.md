@@ -54,7 +54,7 @@ Cada PR acrescenta os itens dele aqui.
 | 42 | **Levar golpe** | Barra vermelha desce (o pedaço perdido fica claro e some devagar), você tropeça para trás, a tela treme e o controle vibra | ☐ |
 | 43 | **Travar nele** (Q) | Uma barrinha vermelha aparece sobre ele e desce a cada acerto | ☐ |
 | 44 | **Vencer** | Ele cai e, depois de uns segundos, afunda no chão | ☐ |
-| 45 | **Morrer** | "A névoa te levou". Em 3,5 s você volta ao começo com tudo cheio e o Romeiro volta para o lugar dele | ☐ |
+| 45 | **Morrer** | "A névoa te levou". Em uns segundos você volta (no começo ou no cruceiro, ver item 67) com tudo cheio e o Romeiro volta para o lugar dele | ☐ |
 | 46 | **Fugir** | Longe o bastante, ele desiste e volta andando para onde estava | ☐ |
 | 47 | **Escudo** (S6): segure o clique direito (ou LB) | O peregrino ergue a rodela de madeira na frente do peito e anda devagar | ☐ |
 | 48 | **Segurar golpe** de frente para o Romeiro | Baque de madeira e faísca pequena; a vida não desce, o fôlego desce | ☐ |
@@ -71,6 +71,15 @@ Cada PR acrescenta os itens dele aqui.
 | 59 | **Pão**: aperte F (ou Y) | Mastiga rapidinho e cura um pouco. O pão mostra 2 | ☐ |
 | 60 | **Cabaça vazia**: beba até zerar e aperte de novo | "A cabaça está vazia". Morrendo e voltando ao começo, ela enche de novo | ☐ |
 | 61 | **Pouca vida**: fique com menos de um quarto | Borda vermelha pulsando em volta da tela | ☐ |
+| 62 | **Começar do zero** (S8): abra o jogo com `?novo` no fim do endereço (ex.: `…:5173/?novo`) | Começa sem progresso. Sem o `?novo`, o jogo continua de onde parou | ☐ |
+| 63 | **Cruceiro**: chegue perto da cruz de pedra (à direita do começo) | Aviso embaixo: "E · Descansar no Cruceiro da arena" (no controle, "A") | ☐ |
+| 64 | **Descansar** (E ou A) | Primeira vez: "Vela acesa" grande, sininhos, as velinhas do pé acendem. Vida e cabaça cheias; o Romeiro volta ao lugar | ☐ |
+| 65 | **Descansar com inimigo atrás** | "Não dá para descansar com inimigos por perto" | ☐ |
+| 66 | **Cera**: vença o Romeiro | Ele derrete em faíscas cor de cera; o placar no canto de baixo à direita sobe até 30 | ☐ |
+| 67 | **Morrer** | Tela escura, "A névoa te levou". Volta na frente do cruceiro, tudo cheio, cera 0 | ☐ |
+| 68 | **A vela**: volte onde morreu | Uma vela acesa no chão com um facho de luz fraco (dá para ver de longe) e um zumbido baixo perto. "E · Pegar a cera (30)" | ☐ |
+| 69 | **Morrer duas vezes**: morra com cera e, antes de pegar a vela, morra de novo | "A vela apagou: … de cera perdida" | ☐ |
+| 70 | **Fechar e abrir**: feche a aba e abra o jogo de novo (sem `?novo`) | "Continuando de onde parou": na frente do cruceiro, com a cera e a vela onde estavam | ☐ |
 ## Anotar o FPS
 O FPS aparece em verde no canto de cima, à direita. Anote depois de 1 minuto andando pela arena.
 

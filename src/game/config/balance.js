@@ -48,7 +48,7 @@ export const BALANCE = {
 
   // Cura (DESIGN 6). Cabaça: R ou X. Pão de milho: F ou Y. Bebendo/comendo anda devagar e não ataca nem rola
   gourd: {
-    sips: 4, // goles na cabaça (o anaco de cabaça dá +1). Enche ao descansar no cruceiro (S8; por enquanto, ao voltar ao começo)
+    sips: 4, // goles na cabaça (o anaco de cabaça dá +1). Enche ao descansar no cruceiro (e ao voltar nele depois de morrer)
     time: 1.1, // duração do gole (s)
     healAt: 0.7, // a cura entra neste instante (s). Levou golpe antes: o gole se perde
     heal: 40, // vida que o gole cura
@@ -88,6 +88,19 @@ export const BALANCE = {
   // Bonecos de treino (S3, S4): onde ficam na arena. Não morrem
   dummies: [{ x: 0, z: 2 }, { x: 4, z: 0 }],
 
+  // Cruceiros (DESIGN 1 e 7): E ou A perto dele = descansar (cura, enche a cabaça, salva e os inimigos voltam).
+  // Morrendo, você volta no último em que descansou (antes do primeiro descanso: no começo)
+  cruceiros: [{ id: 'arena', name: 'Cruceiro da arena', x: 9, z: 3 }],
+  rest: {
+    range: 2.8, // distância para descansar (m, do centro do cruceiro; o pé de pedra tem ~2 m de largura)
+    enemyNear: 15, // não dá para descansar com inimigo atrás de você a menos disso (m)
+  },
+  // Cera e a vela da morte (DESIGN 7): morreu, a cera fica acesa no chão. Uma chance de voltar e pegar (E ou A)
+  candle: {
+    range: 1.6, // distância para pegar (m)
+    hum: 30, // o zumbido baixo que guia até a vela se ouve até essa distância (m)
+  },
+
   // Inimigos na arena (S5): tipo, posição e para onde olham (radianos; 0 = para baixo na tela)
   enemies: [{ kind: 'romeiro', x: -8, z: 13, ry: 0 }],
 
@@ -95,13 +108,14 @@ export const BALANCE = {
   hurt: {
     stagger: 0.35, // tropeço: tanto tempo (s) sem poder agir
     push: 2.5, // empurrão para trás no tropeço (m/s no começo)
-    respawn: 3.5, // morreu: volta ao começo depois de tanto tempo (s). O cruceiro e a cera chegam no S8
+    respawn: 4, // morreu: tela escura e, depois de tanto tempo (s), volta no último cruceiro
   },
 
   // Romeiro perdido (DESIGN 5). Golpes: warn = aviso (s), hits = duração de cada golpe (s), gap = pausa entre golpes,
   // recover = janela para punir (s), range = alcance (m), arc = metade da abertura (graus), warnTurn = giro máximo no aviso (graus/s)
   romeiro: {
     hp: 55, posture: 30, r: 0.42,
+    cera: 30, // cera que ele deixa ao cair (DESIGN 7)
     walk: 1.6, // velocidade andando (m/s): mais lento que o jogador
     turn: 4, // giro andando (radianos/s)
     sight: 9, // enxerga o jogador a até tantos metros (e sem parede no meio)

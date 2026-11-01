@@ -19,13 +19,15 @@
 // O hash conta bloqueios, aparos, guardas quebradas, joelhos e críticos.
 // S7 (167–180 s): longe dos inimigos, com pouca vida: bebe (cura), bebe de vida cheia (gasta mesmo assim), come pão,
 // leva golpe no meio de um gole (perde), esvazia a cabaça e tenta beber vazia. O hash conta curas, perdas e vazios.
+// S8 (180–203 s): vence um Romeiro (+30 de cera), descansa no cruceiro, morre longe (a cera vira vela), volta no cruceiro, pega a
+// vela, morre de novo e morre outra vez antes de pegar (a cera se perde). Salva e carrega: tem de dar o mesmo.
 // Cada PR que cria jogabilidade acrescenta a sua cena ao roteiro.
 // Rode sempre em processo novo (node scripts/sim.mjs): o Three.js e o Vite guardam estado entre rodadas.
 // SIM_TRACE=arquivo grava um rastro quadro a quadro (para achar onde dois replays se separam).
 // (Mecanismo copiado do survivor e4314ee; o roteiro é deste jogo.)
 import { createHash } from 'node:crypto'
 
-export async function SimFingerprint(vite, frames = 5400) {
+export async function SimFingerprint(vite, frames = 6100) {
   // o motor de áudio registra teclas ao carregar; fora do navegador isso não existe
   globalThis.addEventListener ??= () => {}
   // sorteio e relógio fixos
@@ -72,6 +74,12 @@ export async function SimFingerprint(vite, frames = 5400) {
     events.on('healed', () => s7.healed++)
     events.on('use-lost', () => s7.lost++)
     events.on('use-empty', () => s7.empty++)
+    const s8 = { rest: 0, candle: 0, pick: 0, lost: 0, saves: 0, roundtrip: null }
+    events.on('rest', () => s8.rest++)
+    events.on('candle', () => s8.candle++)
+    events.on('candle-pick', () => s8.pick++)
+    events.on('candle-lost', () => s8.lost++)
+    events.on('save', () => s8.saves++)
     // robô do S5: estado da luta
     const bot = { atk: null, rolled: false, punches: 0, parried: null }
 
@@ -95,7 +103,29 @@ export async function SimFingerprint(vite, frames = 5400) {
     for (let f = 0; f < frames; f++) {
       now += dt * 1000
       let mx, mz, run = 0
-      if (f >= 5020) {
+      if (f >= 5400) {
+        // S8: os inimigos das cenas antigas vão morar longe (senão impediriam o descanso)
+        if (f === 5400) {
+          game.enemies.forEach((e, i) => { e.home = { x: -18 + i * 1.5, z: -18, ry: 0 }; e.reset() })
+          if (p.lock) game.act('local', 'lock')
+          Object.assign(p, { x: 9, z: 5.2, facing: Math.PI })
+          const r = game.spawn('romeiro', -18, 18, 0) // mora longe; aparece perto e quase morto
+          Object.assign(r, { x: 9, z: 7.3, facing: Math.PI, hp: 5 })
+        }
+        const r = game.enemies[5]
+        let pr = null
+        ;[mx, mz] = [0, 0]
+        if (f < 5460) { if (!r.dead && f % 8 === 0) pr = f === 5400 ? null : 'light'; [mx, mz] = f === 5408 ? [0, 1] : [0, 0] }
+        else if (f < 5478) [mx, mz] = toward({ x: 9, z: 4.4 })
+        else if (f === 5480) pr = 'use' // descansa
+        else if (f >= 5490 && f < 5560) [mx, mz] = toward({ x: 17, z: 5 })
+        else if (f >= 5700 && f < 5770) [mx, mz] = toward(game.progress.candle || { x: p.x, z: p.z })
+        else if (f === 5772) pr = 'use' // pega a vela
+        if (f === 5560 || f === 5780 || f === 5910) game.hurt(p, 999, 0) // morre (a 3ª antes de pegar a vela)
+        if (f === 6050) { const d = game.save(); game.load(JSON.parse(JSON.stringify(d))); s8.roundtrip = JSON.stringify(game.save()) === JSON.stringify(d) }
+        game.setInput('local', { mx, mz, ax: 0, az: 0, run: 0 })
+        if (pr) game.act('local', pr)
+      } else if (f >= 5020) {
         // S7: [quadro]: ação; o jogador num canto longe dos inimigos
         if (f === 5020) { if (p.lock) game.act('local', 'lock'); p.x = 18; p.z = 18; p.hp = 30 }
         if (f === 5130) p.hp = 50
@@ -193,7 +223,7 @@ export async function SimFingerprint(vite, frames = 5400) {
       camera.update(dt, p, p.lock)
       if (p.safe) safeFrames++
       const c = camera.cam.position
-      if (trace) trace.push(`${f} r${calls} ${p.x.toFixed(4)},${p.z.toFixed(4)},${p.gy.toFixed(3)},${p.lv},${p.stamina.toFixed(2)} cam ${c.x.toFixed(4)},${c.z.toFixed(4)} roll ${p.rollT.toFixed(3)}${p.safe ? ' safe' : ''}${p.running ? ' run' : ''}${p.atk ? ` atk ${p.atk.kind}${p.atk.n} ${p.atk.t.toFixed(3)}` : ''} dmg ${game.targets.map((e) => e.dmg).join('/')}${p.lock ? ` lock ${p.lock.id} lost ${p.lockLost.toFixed(2)} face ${p.facing.toFixed(2)}` : ''} hp ${p.hp}${p.hurtT > 0 ? ' HURT' : ''}${p.dead ? ' DEAD' : ''}${p.guard ? ' GUARD' : ''}${p.parryT >= 0 ? ' PARRY' : ''}${p.stunT > 0 ? ' STUN' : ''}${p.use ? ` USE ${p.use} ${p.useT.toFixed(2)}` : ''} g${p.gourd} b${p.bread}${game.enemies.map((e) => ` | ${e.kind} ${e.x.toFixed(2)},${e.z.toFixed(2)} ${e.state}${e.atk ? ':' + e.atk.name + ':' + e.atk.phase : ''} hp ${e.hp} pos ${e.posture.toFixed(1)}`).join('')}`)
+      if (trace) trace.push(`${f} r${calls} ${p.x.toFixed(4)},${p.z.toFixed(4)},${p.gy.toFixed(3)},${p.lv},${p.stamina.toFixed(2)} cam ${c.x.toFixed(4)},${c.z.toFixed(4)} roll ${p.rollT.toFixed(3)}${p.safe ? ' safe' : ''}${p.running ? ' run' : ''}${p.atk ? ` atk ${p.atk.kind}${p.atk.n} ${p.atk.t.toFixed(3)}` : ''} dmg ${game.targets.map((e) => e.dmg).join('/')}${p.lock ? ` lock ${p.lock.id} lost ${p.lockLost.toFixed(2)} face ${p.facing.toFixed(2)}` : ''} hp ${p.hp}${p.hurtT > 0 ? ' HURT' : ''}${p.dead ? ' DEAD' : ''}${p.guard ? ' GUARD' : ''}${p.parryT >= 0 ? ' PARRY' : ''}${p.stunT > 0 ? ' STUN' : ''}${p.use ? ` USE ${p.use} ${p.useT.toFixed(2)}` : ''} g${p.gourd} b${p.bread} cera ${p.cera}${game.progress.candle ? ` vela ${game.progress.candle.cera}` : ''}${game.enemies.map((e) => ` | ${e.kind} ${e.x.toFixed(2)},${e.z.toFixed(2)} ${e.state}${e.atk ? ':' + e.atk.name + ':' + e.atk.phase : ''} hp ${e.hp} pos ${e.posture.toFixed(1)}`).join('')}`)
     }
     if (trace) (await import('node:fs')).writeFileSync(process.env.SIM_TRACE, trace.join('\n'))
     const r = (v) => (typeof v === 'number' ? Math.round(v * 1e6) / 1e6 : v)
@@ -201,13 +231,13 @@ export async function SimFingerprint(vite, frames = 5400) {
       players: [...game.players.values()].map((q) => [q.id, r(q.x), r(q.z), r(q.gy), q.lv, r(q.stamina), r(q.facing), q.tired]),
       door: door ? [r(door.x), r(door.z)] : null,
       camera: [r(camera.cam.position.x), r(camera.cam.position.y), r(camera.cam.position.z)],
-      rolls, safeFrames, locks, hurts, deaths, kills, s6, s7, items: [p.hp, p.gourd, p.bread],
+      rolls, safeFrames, locks, hurts, deaths, kills, s6, s7, s8, items: [p.hp, p.gourd, p.bread], cera: p.cera, home: p.home,
       targets: game.targets.map((e) => [e.id, e.hits, e.dmg, e.posture]),
       enemies: game.enemies.map((e) => [e.id, r(e.x), r(e.z), e.hp, e.state, e.dead]),
     }
     const [, x, z, , lv, st] = state.players[0]
     const t0 = game.targets[0]
-    return { hash: createHash('sha256').update(JSON.stringify(state)).digest('hex'), summary: `jogador em (${x.toFixed(2)}, ${z.toFixed(2)}) · andar ${lv} · fôlego ${Math.round(st)} · ${rolls} rolamentos · boneco: ${t0.hits} golpes, ${t0.dmg} de dano · levou ${hurts} golpes, ${deaths} morte(s), ${kills} inimigo(s) vencido(s) · escudo ${s6.block}, aparos ${s6.parry}, guarda quebrada ${s6.guardBreak}, joelhos ${s6.broken}, críticos ${s6.critical} · curas ${s7.healed}, perdidas ${s7.lost}, vazio ${s7.empty}, vida ${p.hp}, goles ${p.gourd}, pães ${p.bread}${door ? '' : ' · casa sem porta?'}` }
+    return { hash: createHash('sha256').update(JSON.stringify(state)).digest('hex'), summary: `jogador em (${x.toFixed(2)}, ${z.toFixed(2)}) · andar ${lv} · fôlego ${Math.round(st)} · ${rolls} rolamentos · boneco: ${t0.hits} golpes, ${t0.dmg} de dano · levou ${hurts} golpes, ${deaths} morte(s), ${kills} inimigo(s) vencido(s) · escudo ${s6.block}, aparos ${s6.parry}, guarda quebrada ${s6.guardBreak}, joelhos ${s6.broken}, críticos ${s6.critical} · curas ${s7.healed}, perdidas ${s7.lost}, vazio ${s7.empty}, vida ${p.hp}, goles ${p.gourd}, pães ${p.bread} · descansos ${s8.rest}, velas ${s8.candle}, pegas ${s8.pick}, perdidas ${s8.lost}, cera ${p.cera}, save ${s8.roundtrip ? 'ok' : 'DIFERENTE'}${door ? '' : ' · casa sem porta?'}` }
   } finally {
     Math.random = realRandom
     Error.stackTraceLimit = realLimit

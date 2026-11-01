@@ -25,7 +25,7 @@ export function CreateEnemy(scene, spec, x, z, ry, ctx) {
   scene.add(model.root)
   const e = {
     id: `${spec.kind}-${x},${z}`, kind: spec.kind, x, z, y: 0, r: T.r, facing: ry, home: { x, z, ry },
-    hp: T.hp, maxHp: T.hp, posture: 0, maxPosture: T.posture, dead: false, model,
+    hp: T.hp, maxHp: T.hp, posture: 0, maxPosture: T.posture, dead: false, model, cera: T.cera || 0,
     state: 'idle', stT: 0, vel: 0, hitT: 0, fallDir: -1, pose: null, poseW: 0, waitT: 0, target: null,
     postureT: 0, brokenT: 0, // tempo sem levar golpe (a postura só esvazia depois de um tempo); quanto tempo fica de joelhos
     atk: null, // { name, def, phase: 'warn' | 'strike' | 'gap' | 'recover', i: golpe atual, t, a: direção travada, hit }

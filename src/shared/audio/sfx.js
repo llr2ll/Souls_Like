@@ -228,6 +228,8 @@ const S = {
   gameover: [0, 3.2, (o, t) => { [69, 65, 62, 57].forEach((m, i) => { pluck(o, t + i * 0.42, midi(m), 0.55, 0.998); tone(o, t + i * 0.42, { type: 'triangle', f: midi(m - 12), dur: 0.5, vol: 0.08 }) }); tone(o, t + 1.6, { f: 55, f1: 35, dur: 1.6, a: 0.1, vol: 0.5 }) }],
   levelup: [0, 1.6, (o, t) => { [67, 72, 76, 79, 84].forEach((m, i) => bell(o, t + i * 0.08, midi(m), 0.22, 0.7)) }], // subir de nível
   supply: [0, 1, (o, t) => { thud(o, t, 0.6); [74, 79, 83].forEach((m, i) => bell(o, t + 0.12 + i * 0.08, midi(m), 0.18, 0.5)) }],
+  // souls-like (S8): zumbido baixo da vela da morte, que guia até ela
+  candle: [30, 1.7, (o, t) => { tone(o, t, { type: 'triangle', f: 196, dur: 1.5, a: 0.5, vol: 0.08 }); tone(o, t, { f: 98, dur: 1.5, a: 0.6, vol: 0.12 }) }],
 }
 
 // toca um efeito. o: { x, z, vol, delay, ...parâmetros da receita }

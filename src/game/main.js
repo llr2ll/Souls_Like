@@ -41,7 +41,7 @@ function Wire(camera) {
   events.on('enemy-stagger', (e) => sfx('zstagger', { x: e.x, z: e.z }))
   events.on('enemy-death', (e) => sfx('zdeath', { x: e.x, z: e.z }))
   events.on('hurt', ({ p }) => { sfx('hurt', { x: p.x, z: p.z }); sfx('impact', { x: p.x, z: p.z }) })
-  events.on('death', (p) => sfx('death', { x: p.x, z: p.z }))
+  events.on('death', (p) => sfx('death', { x: p.x, z: p.z })) // tela da morte e "A névoa te levou": WireProgress
   // escudo e aparo: madeira no bloqueio, "tlin" de metal no aparo (DESIGN 8, item 4)
   events.on('block', ({ p }) => sfx('doorclose', { x: p.x, z: p.z }))
   events.on('guard-break', ({ p }) => { sfx('doorclose', { x: p.x, z: p.z }); sfx('grunt', { x: p.x, z: p.z }) })
@@ -108,6 +108,52 @@ function Note(text) {
   clearTimeout(noteTimer)
   noteTimer = setTimeout(() => el.classList.remove('on'), 3500)
 }
+// título grande no meio da tela por uns segundos (DESIGN 8, item 8: "Vela acesa")
+let titleTimer
+function Title(text) {
+  const el = document.getElementById('title')
+  el.textContent = text
+  el.classList.add('on')
+  clearTimeout(titleTimer)
+  titleTimer = setTimeout(() => el.classList.remove('on'), 2600)
+}
+
+// save no navegador (DESIGN 7). Abrir a página com ?novo apaga e começa do zero. Navegador sem permissão: joga sem salvar
+const SAVE_KEY = 'camino-das-animas-save'
+function ReadSave() {
+  try {
+    if (new URLSearchParams(location.search).has('novo')) { localStorage.removeItem(SAVE_KEY); return null }
+    return JSON.parse(localStorage.getItem(SAVE_KEY) || 'null')
+  } catch { return null }
+}
+function WriteSave(data) { try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)) } catch {} }
+
+// progresso: descanso, cera, vela da morte (sons, avisos, tela da morte)
+function WireProgress(fx) {
+  const at = (o) => ({ x: o.x, z: o.z })
+  events.on('save', WriteSave)
+  events.on('rest', ({ p, c, first }) => {
+    sfx('revive', at(p))
+    if (first) { Title('Vela acesa'); sfx('start') } else Note(`Descansou no ${c.name}`)
+    fx.flash(c.x, 0.6, c.z + 1, 0.9, 0xffd27a, 0.6)
+  })
+  events.on('rest-denied', () => Note('Não dá para descansar com inimigos por perto'))
+  events.on('cera', ({ e }) => { sfx('buff', at(e)); fx.burst(e.x, 1.0, e.z, 0xf5e6b8, 10, 2.2, 0.8, 0.8) }) // derrete como vela
+  events.on('candle-pick', ({ p, cera }) => { sfx('supply'); Note(`Cera recuperada: ${cera}`); fx.flash(p.x, 0.5, p.z, 0.7, 0xffd27a, 0.5) })
+  events.on('candle-lost', ({ cera }) => Note(`A vela apagou: ${cera} de cera perdida`))
+  const death = document.getElementById('death')
+  events.on('death', () => { sfx('gameover'); setTimeout(() => death.classList.add('on'), 500) })
+  events.on('respawn', () => death.classList.remove('on'))
+}
+// zumbido baixo que guia até a vela da morte: mais frequente perto
+let humT = 0
+function CandleHum(dt, p, candle) {
+  if (!p || !candle) return
+  const d = Math.hypot(candle.x - p.x, candle.z - p.z)
+  if (d > BALANCE.candle.hum || (humT -= dt) > 0) return
+  humT = 1.2 + d * 0.06
+  sfx('candle', { x: candle.x, z: candle.z })
+}
 
 export async function LoadGame() {
   const target = document.getElementById('render-target')
@@ -126,12 +172,15 @@ export async function LoadGame() {
   const game = CreateGame(scene)
   game.addPlayer('local', 'Peregrino') // sem menu: teclado e controle mexem o mesmo jogador
   for (const e of BALANCE.enemies) game.spawn(e.kind, e.x, e.z, e.ry)
+  if (game.load(ReadSave())) Note('Continuando de onde parou') // fechou a página e abriu: continua
   const input = { players: game.players, setInput: game.setInput, act: game.act }
   BindKeyboard(input, BALANCE.keys)
   const help = document.getElementById('help')
   const HELP = { keys: help.textContent, pad: 'Controle: stick anda · B: tocar rola, segurar corre · RB leve · RT pesado · LB escudo · LT apara · R3 trava · X cabaça · Y pão' }
   for (const [sel, key] of [['.gourd small', 'X'], ['.bread small', 'Y']]) document.querySelector(`#items ${sel}`).dataset.pad = key
+  let usingPad = false
   const pad = BindGamepad(input, BALANCE.pad, (name) => {
+    usingPad = !!name
     help.textContent = name ? HELP.pad : HELP.keys
     // a letra no canto de cada item mostra o botão do aparelho em uso
     for (const el of document.querySelectorAll('#items small')) { el.dataset.key ||= el.textContent; el.textContent = name ? el.dataset.pad : el.dataset.key }
@@ -142,8 +191,8 @@ export async function LoadGame() {
   for (const k of ['block', 'parry', 'guard-break']) events.on(k, () => Impact(k === 'guard-break' ? 'guardBreak' : k, camera, pad))
   const fx = CreateFX(scene)
   WireFX(fx)
+  WireProgress(fx)
   events.on('hurt', (d) => Impact(d.strong ? 'hurtStrong' : 'hurt', camera, pad)) // levou golpe
-  events.on('death', () => Note('A névoa te levou')) // a tela de morte de verdade chega no S8
   const hud = CreateHud(BALANCE.hud)
   events.on('respawn', () => hud.reset())
   const trail = CreateTrail(scene, BALANCE.juice.trail)
@@ -167,6 +216,8 @@ export async function LoadGame() {
     camera.update(dt, me, lock)
     lockMark.update(dt, lock)
     hud.update(dt, me, camera.cam)
+    if (me) hud.prompt(game.progress.interactable(me), usingPad ? 'A' : 'E')
+    CandleHum(dt, me, game.progress.candle)
     BodySounds(dt, list[0])
     SampleTrail(trail, list[0])
     trail.update(dt)
