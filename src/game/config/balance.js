@@ -12,7 +12,7 @@ export const BALANCE = {
   move: {
     walk: 4.4, // velocidade andando (m/s), igual ao survivor
     run: 6.6, // velocidade correndo (segurar Espaço ou B)
-    aim: 3.1, // velocidade mirando (herança do survivor; este jogo não mira, campo exigido pelo movimento copiado)
+    aim: 3.4, // velocidade andando travado no alvo (de frente para ele, de lado ou de costas)
     swim: 3.1, // nadando (a arena não tem água)
     staminaRun: 15, // fôlego gasto por segundo correndo
     staminaSwim: 9, // fôlego gasto por segundo nadando
@@ -46,8 +46,8 @@ export const BALANCE = {
     buffer: 0.25, // apertou até tanto tempo (s) antes do fim do golpe: fica guardado e sai na hora certa
   },
 
-  // Bonecos de treino (S3): onde ficam na arena. Não morrem
-  dummies: [{ x: 0, z: 2 }],
+  // Bonecos de treino (S3, S4): onde ficam na arena. Não morrem
+  dummies: [{ x: 0, z: 2 }, { x: 4, z: 0 }],
 
   // Barras na tela
   hud: {
@@ -66,6 +66,11 @@ export const BALANCE = {
     leadSpeed: 4.4, // a partir desta velocidade (m/s) a antecipação fica inteira (andando já é tudo)
     leadFollow: 2.5, // suavidade da antecipação: mais baixo = demora mais para mudar quando ele vira
     shakeMax: 0.4, // tremor máximo, somando vários ao mesmo tempo (m)
+    // travado no alvo: a câmera olha entre os dois e se afasta para caber os dois na tela
+    lockBias: 0.4, // onde olha: 0 = no jogador, 1 = no alvo
+    lockMargin: 2.5, // folga em volta dos dois (m)
+    lockMax: 17, // distância máxima da câmera (m; a normal é ~13)
+    zoomFollow: 3, // suavidade do afastar/aproximar
   },
 
   // Sensação de impacto (DESIGN 8): cada golpe que acerta. light = leve, heavy = pesado
@@ -85,14 +90,24 @@ export const BALANCE = {
     dead: 0.2, // zona morta do stick (0 a 1): abaixo disso conta como solto (evita andar sozinho com o stick gasto)
     hold: { B: 'run' }, // B: tocar rola, segurar corre
     // apertar: cada ação só faz efeito quando o PR dela chegar (bater S3, travar S4, aparar S6, cabaça S7)
-    press: { A: 'use', X: 'heal', RB: 'light', RT: 'heavy', LT: 'parry', R3: 'lock', RIGHT: 'swap' },
+    // R-left / R-right = puxar o stick direito para o lado (troca de alvo)
+    press: { A: 'use', X: 'heal', RB: 'light', RT: 'heavy', LT: 'parry', R3: 'lock', 'R-left': 'lock-prev', 'R-right': 'lock-next', RIGHT: 'swap' },
   },
 
   // Teclado e mouse (DESIGN 3.7). WASD anda. Nomes: letras, 'space', 'mouse-left', 'mouse-right', 'mouse-middle', 'wheel-up', 'wheel-down'
   keys: {
     hold: { space: 'run' }, // Espaço: tocar rola, segurar corre
     // apertar ('shift+…' = com Shift segurado). Cada ação só faz efeito quando o PR dela chegar
-    press: { e: 'use', r: 'heal', q: 'lock', 'mouse-middle': 'lock', 'mouse-left': 'light', 'shift+mouse-left': 'heavy', 'shift+mouse-right': 'parry' },
+    press: { e: 'use', r: 'heal', q: 'lock', 'mouse-middle': 'lock', 'wheel-up': 'lock-prev', 'wheel-down': 'lock-next',
+      'mouse-left': 'light', 'shift+mouse-left': 'heavy', 'shift+mouse-right': 'parry' },
+  },
+
+  // Travar no alvo (DESIGN 3.6). Q, botão do meio ou R3 trava/solta; roda do mouse ou stick direito para o lado troca
+  lock: {
+    range: 14, // alcance para travar (m)
+    release: 18, // solta sozinho se o alvo ficar mais longe que isso (m)
+    lostTime: 2, // solta sozinho depois de tanto tempo (s) sem ver o alvo (parede no meio)
+    anglePenalty: 4, // ao travar, prefere o alvo para onde ele olha: cada radiano de desvio conta como tantos metros a mais
   },
 
   arena: {

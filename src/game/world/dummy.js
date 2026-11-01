@@ -26,7 +26,7 @@ export function CreateDummy(scene, x, z, ry = 0) {
   const tilt = new THREE.Group() // balanço: gira em volta do pé do poste
   const body = new THREE.Mesh(geo(), MAT.solid)
   tilt.add(body); root.add(base, tilt); scene.add(root)
-  AddColliders([{ x, z, hw: 0.3, hd: 0.3 }])
+  AddColliders([{ x, z, hw: 0.3, hd: 0.3, h: 1.1 }]) // h baixo: bloqueia o passo, mas não "tapa a visão" de quem trava em outro alvo
 
   let wx = 0, wz = 0, vx = 0, vz = 0, flashT = 0
   const d = {

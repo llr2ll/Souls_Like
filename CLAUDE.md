@@ -39,6 +39,8 @@ npm run build    # gera dist/ (para hospedar)
      O hash conta também quantos rolamentos houve e quantos quadros invulneráveis.
      S3 (82–98 s) vai até o boneco; combo de 3 (um aperto cedo demais é descartado), pesado, leve cancelado por rolamento
      depois do impacto, golpes até zerar o fôlego. O hash conta golpes, dano e postura em cada alvo.
+     S4 (98–118 s) trava, troca de alvo, anda de frente para ele, golpe com o stick para o outro lado (vai no alvo), corre para longe
+     (solta), tenta travar longe (nada), trava e se esconde atrás da casa (solta em 2 s). O hash guarda a sequência de travadas.
      **PR de organização tem de dar igual.** PR que muda a jogabilidade de propósito: `npm run check -- --update-sim` e dizer isso na descrição.
      Cada PR de jogabilidade acrescenta a sua cena ao roteiro. `SIM_TRACE=arquivo node scripts/sim.mjs` grava o rastro quadro a quadro.
 - `npm run smoke` — teste automático (~1 min). Compila, sobe a página na porta **5199**, abre no Chromium sem tela, anda com o teclado,
@@ -77,8 +79,10 @@ src/game/                 este jogo
   game.js                 estado e regras (sem desenhar: o replay roda isto sem navegador): botão de rolar/correr, rolamento
   hud.js                  barras na tela (página, não 3D): fôlego
   fx/trail.js             rastro da lâmina (só no instante de dano)
+  fx/lock-mark.js         marca do alvo travado (círculo que pulsa, visível através das coisas)
   world/dummy.js          boneco de treino (pisca branco e balança ao levar golpe; não morre)
-  camera.js               câmera de cima em 3/4, fixa: segue o jogador olhando ~1,5 m à frente (antecipação); tremor (shake)
+  camera.js               câmera de cima em 3/4, fixa: segue o jogador olhando ~1,5 m à frente (antecipação); tremor (shake);
+                          travado: olha entre os dois e se afasta (até 17 m) para caber os dois
   config/balance.js       TODOS os números ajustáveis, comentados em português
   world/arena.js          arena de teste (S0): chão, muro, cruceiro, hórreo, carvalhos, pedras e uma casa
   world/place-house.js    põe uma casa do survivor no mapa (trecho do gerador do survivor)
@@ -96,7 +100,8 @@ src/game/                 este jogo
 ## Contrato de input (proteger)
 Copiado do survivor. **Só ganha coisas, nunca muda** (para o co-op pelo celular funcionar depois).
 - `game.setInput(id, { mx, mz, ax, az, run, fire })` — mover (-1..1), mirar (-1..1), correr 0/1, `fire` só no mouse.
-- `game.act(id, ação)` — fazem efeito: `roll` (S2), `light`, `heavy` (S3). Planejadas (DESIGN 3.7): `parry`, `lock`, `heal`
+- `game.act(id, ação)` — fazem efeito: `roll` (S2), `light`, `heavy` (S3), `lock`, `lock-next`, `lock-prev` (S4).
+  Planejadas (DESIGN 3.7): `parry`, `heal`
   (`use` e `swap` já existem). Bloquear (`guard`) é de segurar: entra como campo novo no `setInput`.
 - `run` = **botão de rolar/correr segurado**. O jogo decide (`game.js`): soltar antes de `BALANCE.roll.tap` (0,25 s) rola; segurar mais corre.
   O jogo guarda o que chegou em `p.raw` e monta `p.input` (o que o movimento copiado recebe).
@@ -151,6 +156,11 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
   cancela só depois do fim do instante de dano (`hit[1]`). Rolando ou atacando, o fôlego não recupera.
 - Golpe acerta cada alvo **uma vez**, só no instante de dano (`hit`), no alcance (até a borda do alvo, `e.r`) e dentro da abertura (`arc`).
   Alvos = `game.targets` (hoje os bonecos; os inimigos entram no S5). Cada alvo tem `x, z, r, hit({ dmg, posture, dir, kind }), update(dt)`.
+- Travar (`p.lock`): escolhe o alvo mais perto na direção do stick/frente (desvio pesa `BALANCE.lock.anglePenalty` m por radiano),
+  até 14 m e à vista. Trocar = o mais próximo do lado pedido **na tela** (a câmera é fixa: direita = x maior). Solta sozinho a 18 m
+  ou depois de 2 s sem ver (parede alta no meio; o boneco tem `h` baixo e não tapa). Travado e sem correr, o jogo manda `ax/az`
+  na direção do alvo: o movimento copiado "mira" (anda de frente para o alvo, a `move.aim` m/s). Correr, rolar e golpear não miram.
+  Golpe travado vai no alvo; rolamento vai para o stick.
 - O 3º leve é uma estocada nova no kit do Samurai (`thrust`); o pesado também é novo (`heavy`). O rastro (`fx/trail.js`) usa a ponta
   da espada (`model.muzzle`) e o meio do caminho até o peito.
 - `npm run check` roda no Windows também (o `sim.mjs` usa `pathToFileURL`).
@@ -174,3 +184,6 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
 - **s3-ataques (S3)** — leve (combo de 3: dois cortes e uma estocada) e pesado (`BALANCE.attack`), fila única com guarda de 0,25 s,
   compromisso, rolamento cancela depois do impacto, passo à frente, pausa no impacto, tremor no pesado, vibração, rastro da lâmina,
   assobio e som do golpe. Boneco de treino em (0, 2). Animações novas `thrust` e `heavy` no `kits.js`. Saiu o teste de tremor (T/Y).
+- **s4-travar-alvo (S4)** — Q / botão do meio / R3 travam; roda do mouse e stick direito puxado para o lado trocam. Marca no alvo,
+  câmera enquadrando os dois (afasta até 17 m), andar de frente para o alvo, golpe no alvo, solta a 18 m ou sem ver por 2 s.
+  Segundo boneco em (4, 0). `BALANCE.lock`, `camera.lock*`, `move.aim` (3,4 m/s).

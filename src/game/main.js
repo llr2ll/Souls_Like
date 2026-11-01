@@ -16,6 +16,7 @@ import { CreateGame } from './game'
 import { CreateCamera } from './camera'
 import { CreateHud } from './hud'
 import { CreateTrail } from './fx/trail'
+import { CreateLockMark } from './fx/lock-mark'
 import { BuildArena } from './world/arena'
 import { BALANCE } from './config/balance'
 
@@ -30,6 +31,7 @@ function Wire(camera) {
   events.on('roll-land', (p) => sfx('land', { x: p.x, z: p.z }))
   events.on('swing', ({ p, kind }) => sfx('swing', { x: p.x, z: p.z, heavy: kind === 'heavy' })) // assobio da lâmina
   events.on('hit', ({ x, z, kind }) => { sfx('slice', { x, z }); if (kind === 'heavy') sfx('stomp', { x, z }) })
+  events.on('lock', ({ target }) => sfx('ui', { f: target ? 1250 : 700 })) // travou / soltou: um "tic"
 }
 
 // rastro da lâmina: uma amostra por quadro enquanto ela machuca (ponta da espada e o meio do caminho até o peito)
@@ -93,7 +95,7 @@ export async function LoadGame() {
   const input = { players: game.players, setInput: game.setInput, act: game.act }
   BindKeyboard(input, BALANCE.keys)
   const help = document.getElementById('help')
-  const HELP = { keys: help.textContent, pad: 'Controle: stick anda · B: tocar rola, segurar corre · RB leve · RT pesado' }
+  const HELP = { keys: help.textContent, pad: 'Controle: stick anda · B: tocar rola, segurar corre · RB leve · RT pesado · R3 trava' }
   const pad = BindGamepad(input, BALANCE.pad, (name) => {
     help.textContent = name ? HELP.pad : HELP.keys
     Note(name ? `Controle conectado: ${name}` : 'Controle desconectado')
@@ -101,6 +103,7 @@ export async function LoadGame() {
   events.on('hit', (d) => Impact(d.kind, camera, pad)) // golpe acertou: tremor (só o pesado) e vibração
   const hud = CreateHud(BALANCE.hud)
   const trail = CreateTrail(scene, BALANCE.juice.trail)
+  const lockMark = CreateLockMark(scene)
   if (import.meta.env.DEV) window.__game = game // só no npm run dev: para testes automáticos e depuração
 
   addEventListener('resize', () => {
@@ -116,7 +119,9 @@ export async function LoadGame() {
     SetEars(list) // som posicional: quem ouve é o jogador
     shadows.update(list, [])
     UpdateDoors(dt, list, []) // portas abrem quando alguém chega perto
-    camera.update(dt, list[0])
+    const me = list[0], lock = me && me.lock
+    camera.update(dt, me, lock)
+    lockMark.update(dt, lock)
     hud.update(list[0])
     BodySounds(dt, list[0])
     SampleTrail(trail, list[0])

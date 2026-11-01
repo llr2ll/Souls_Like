@@ -51,7 +51,7 @@ Para conferir se um arquivo continua igual: `git diff --no-index <survivor>/src/
 | Arquivo | O que é |
 |---|---|
 | `src/engine/world/ground.js` | Altura do chão e da água que o jogo informa (`SetGround`). Padrão: chão plano, sem água |
-| `src/engine/input/gamepad.js` (S1) | Controle de videogame: stick com zona morta, botões de segurar e de apertar, vibração. O survivor não tinha (lá o celular era o controle) |
+| `src/engine/input/gamepad.js` (S1) | Controle de videogame: stick com zona morta, botões de segurar e de apertar, vibração, stick direito puxado para o lado (S4). O survivor não tinha (lá o celular era o controle) |
 
 ## Trechos copiados
 | Arquivo novo | De onde | O que mudou |
