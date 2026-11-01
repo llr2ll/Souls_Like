@@ -5,3 +5,8 @@ html, body { height: 100%; margin: 0; background: #15120f; overflow: hidden; fon
 #help { position: absolute; bottom: 8px; right: 12px; font-size: 12px; opacity: .7 }
 #note { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); padding: 6px 14px; border-radius: 6px; background: #0009; font-size: 15px; white-space: nowrap; opacity: 0; transition: opacity .4s }
 #note.on { opacity: 1 }
+#bars { position: absolute; top: 16px; left: 18px }
+.bar { height: 9px; margin-bottom: 5px; background: #0008; border: 1px solid #000a; box-shadow: 0 1px 3px #0008 }
+.bar i { display: block; height: 100%; transition: width .08s linear }
+.stamina i { background: linear-gradient(#7fcf5a, #3f8f2c) }
+.stamina.tired i { background: linear-gradient(#5a6f4e, #34432c) }

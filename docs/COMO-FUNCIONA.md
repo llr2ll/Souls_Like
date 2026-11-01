@@ -45,6 +45,9 @@ Exemplos:
 - Tremor forte demais? Diminua `scale` em `juice.shake` (0 desliga). Vibração: `scale` em `juice.rumble`.
 - O boneco anda sozinho com o controle parado (stick gasto)? Aumente `dead` em `pad`.
 - Trocar um botão do controle: em `pad`, troque o nome do botão (A, B, X, Y, LB, RB, LT, RT, L3, R3, UP, DOWN, LEFT, RIGHT).
+  Teclas do teclado: em `keys`, do mesmo jeito.
+- Rolamento longo ou curto demais? `distance` em `roll`. Mais rápido? Diminua `time`. Mais "perdão"? Aumente o fim de `safe`.
+- Fôlego acaba rápido? Diminua `stamina` em `roll` (gasto por rolamento) ou `staminaRun` em `move` (gasto correndo).
 
 ## Como testar
 - Depois de cada PR: siga `docs/TESTE-MANUAL.md` (poucos minutos).

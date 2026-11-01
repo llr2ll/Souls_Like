@@ -20,6 +20,7 @@ const pulse = (k, peak) => Math.sin(clamp(k < peak ? (k / peak) * 0.5 : 0.5 + ((
 // ---- pés no chão: quanto a sola mais baixa (caixa das malhas dos pés) está abaixo do chão + FOOT_CLEAR ----
 // em unidades locais do root (o zumbi tem escala); 0 se nenhuma está. Precisa das matrizes de mundo em dia.
 export const FOOT_CLEAR = 0.02 // asfalto e decalques da rua ficam até ~2 cm acima do terreno
+const ROLL_C = 0.58 // rolamento: altura do centro do corpo encolhido (eixo da cambalhota)
 const _fb = new THREE.Box3()
 export function SoleDepth(root, feet) {
   let lo = Infinity
@@ -107,7 +108,7 @@ export function CreatePlayerModel(cls = 'gunner') {
     const sp = seat ? 0 : p.speed
     const moving = sp > 0.3
     // pesos suavizados: transições sem "estalo" entre andar/correr/mirar/pular/nadar/sentar
-    aimW = damp(aimW, p.aiming || (act && act !== 'swap') ? 1 : 0, 11, dt)
+    aimW = damp(aimW, p.aiming || (act && act !== 'swap' && act !== 'roll') ? 1 : 0, 11, dt)
     runW = damp(runW, p.running && moving ? 1 : 0, 6, dt)
     moveW = damp(moveW, clamp(sp / 1.6, 0, 1), 9, dt)
     const air = !seat && !p.swim && p.jy > 0.06
@@ -125,6 +126,12 @@ export function CreatePlayerModel(cls = 'gunner') {
     const ak = act ? clamp(actT / actDur, 0, 1) : 0
     const shove = act === 'shove' ? pulse(ak, 0.3) : 0
     const stompUp = act === 'stomp' ? pulse(ak, 0.45) : 0, stomp = act === 'stomp' ? Math.sin(ak * Math.PI) : 0
+    // rolamento: encolhe rápido, dá uma cambalhota para a frente em volta do centro do corpo e solta no fim
+    const rolling = act === 'roll'
+    const tuck = rolling ? clamp(Math.min(ak / 0.12, (1 - ak) / 0.25), 0, 1) : 0
+    const tk = tuck * tuck * (3 - 2 * tuck)
+    const sk = rolling ? clamp((ak - 0.06) / 0.72, 0, 1) : 0
+    const spin = Math.PI * 2 * sk * sk * (3 - 2 * sk)
     heldW = damp(heldW, p.held ? 1 : 0, 8, dt) // agarrado: se debatendo
     if (p.dead) fall = Math.min(1, fall + dt * (0.6 + fall * 4)) // cai acelerando
     else fall = damp(fall, 0, 5, dt)
@@ -168,7 +175,7 @@ export function CreatePlayerModel(cls = 'gunner') {
     const breath = Math.sin(t * 1.9)
     const idle = (1 - moveW) * (1 - seatW)
     const sitY = seat && seat.mode !== 'stand' ? -0.4 : -0.06
-    hips.position.y = B.hipY + st.bob - runW * 0.06 * moveW + pose.crouch + seatW * sitY - airW * 0.05 - landT * 0.5
+    hips.position.y = B.hipY + st.bob - runW * 0.06 * moveW + pose.crouch + seatW * sitY - airW * 0.05 - landT * 0.5 - tk * 0.34
     hips.rotation.y = legYaw - 0.13 * A * sn + idle * Math.sin(t * 0.6) * 0.04
     hips.rotation.z = 0.06 * A * sn + idle * Math.sin(t * 0.7) * 0.03
     hips.rotation.x = runW * 0.1 * moveW
@@ -198,6 +205,7 @@ export function CreatePlayerModel(cls = 'gunner') {
       // caindo morto: joelhos cedem e depois as pernas relaxam
       if (fall > 0) { const b = Math.sin(Math.min(1, fall * 1.6) * Math.PI); kn += b * 1.1 * (1 - fall * 0.5); tx -= b * 0.5 }
       if (stomp && L.s < 0) { tx -= stompUp * 1.0; kn += stompUp * 1.3; ft += stompUp * 0.3 }
+      if (tk > 0) { tx = lerp(tx, -1.55, tk); kn = lerp(kn, 2.15, tk); ft = lerp(ft, 0.45, tk); tz = lerp(tz, L.s * 0.08, tk) } // joelhos no peito
       L.thigh.rotation.x = tx; L.thigh.rotation.z = tz
       L.knee.rotation.x = kn
       L.ankle.rotation.x = ft
@@ -207,21 +215,23 @@ export function CreatePlayerModel(cls = 'gunner') {
     const back = dir < 0 && moving ? 1 : 0
     spine.rotation.y = -legYaw + 0.2 * A * sn + pose.spineY
     spine.rotation.x = 0.05 * moveW + 0.24 * runW * moveW + accLean - back * 0.07 + breath * 0.012 + pose.spineX - hurtT * 1.1 + airW * 0.1 + seatW * (seat && seat.mode !== 'stand' ? -0.06 : 0)
+    spine.rotation.x += tk * 0.95 // rolando: costas curvadas
     spine.rotation.z = -hips.rotation.z * 0.6 + pose.spineZ + heldW * Math.sin(t * 23) * 0.07
     // olhar em volta quando parado
     if ((lookT -= dt) <= 0) { lookT = 2 + Math.random() * 3.5; look2 = idle > 0.5 && aimW < 0.2 ? (Math.random() - 0.5) * 1.3 : 0 }
     neck.rotation.y = damp(neck.rotation.y, -spine.rotation.y * 0.55 + look2 * idle * (1 - aimW) + pose.neckY, 5, dt)
-    neck.rotation.x = -spine.rotation.x * 0.6 + 0.04 * A * Math.cos(phase * 2) + pose.neckX - hurtT * 0.5 - swimW * 0.9 + fall * 0.3
+    neck.rotation.x = -spine.rotation.x * 0.6 + 0.04 * A * Math.cos(phase * 2) + pose.neckX - hurtT * 0.5 - swimW * 0.9 + fall * 0.3 + tk * 1.1
 
     tilt.rotation.y = pose.yaw
     tilt.rotation.z = lean * (1 - seatW)
     // nado gira em volta do quadril (corpo deitado na superfície); a queda gira em volta dos pés
+    // rolamento gira em volta do centro do corpo encolhido (ROLL_C acima do chão)
     const swimX = 1.15 * swimW
-    tilt.rotation.x = swimX + fallDir * fall * Math.PI / 2
-    tilt.position.set(0, B.hipY * (1 - Math.cos(swimX)) + 0.15 * swimW + 0.13 * fall, -B.hipY * Math.sin(swimX))
+    tilt.rotation.x = swimX + fallDir * fall * Math.PI / 2 + spin
+    tilt.position.set(0, B.hipY * (1 - Math.cos(swimX)) + 0.15 * swimW + 0.13 * fall + ROLL_C * (1 - Math.cos(spin)), -B.hipY * Math.sin(swimX) - ROLL_C * Math.sin(spin))
     root.updateMatrixWorld(true)
     // de pé, nenhuma pose (agachar mirando, balanço do quadril, aterrissagem) enfia a sola no chão: só levanta o quadril, nunca abaixa
-    const plant = (1 - airW) * (1 - swimW) * (1 - seatW) * (1 - fall)
+    const plant = (1 - airW) * (1 - swimW) * (1 - seatW) * (1 - fall) * (rolling ? 0 : 1)
     if (plant > 0.01) {
       const sink = SoleDepth(root, ankles) * plant
       if (sink > 1e-4) { hips.position.y += sink; root.updateMatrixWorld(true) }
@@ -264,6 +274,7 @@ export function CreatePlayerModel(cls = 'gunner') {
         a.T.lerp(w, swimW)
       }
       if (fall > 0) { w.set(s * 0.55, -0.15, -0.05).add(a.S); a.T.lerp(w, fall) }
+      if (tk > 0) { w.set(s * 0.16, -0.32, 0.3).add(a.S); a.T.lerp(w, tk * (1 - gw * 0.6)) } // rolando: braços abraçando os joelhos
       // cotovelo: para trás quando o braço está solto, para fora/baixo quando segura algo à frente
       const hold = Math.max(gw, tw, driving ? 1 : 0)
       a.pole.set(s * lerp(0.25, 0.7, hold), lerp(-0.15, -1, hold), lerp(-1, -0.25, hold)).normalize()

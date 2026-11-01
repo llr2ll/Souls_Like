@@ -42,7 +42,9 @@ Para conferir se um arquivo continua igual: `git diff --no-index <survivor>/src/
 | `src/shared/fx/gore.js` | `GroundAt` e `WaterDepth` vêm de `engine/world/ground.js` | Mesmo motivo |
 | `src/shared/worldgen/buildings-registry.js` | `CAM_SLOPE` virou ajustável: `SetCameraSlope(s)` (padrão igual ao survivor, 1,45) | A câmera deste jogo é mais baixa (~50° em vez de ~56°); o recorte do telhado precisa saber |
 | `src/shared/worldgen/names.js` | Saíram `RoadCode` e `Destination` e o import de `worldgen/layout.js` | Dependiam do mapa de estradas. Ficaram as listas de nomes, `NodeName` e `StreetName` |
-| `src/engine/input/keyboard.js` | Tecla H: `getElementById('room')?.` (com `?`) | Este jogo não tem a caixa da sala; sem o `?`, apertar H dava erro |
+| `src/engine/input/keyboard.js` | **Substituído no S2** por um leitor guiado pelo mapa do jogo (`BALANCE.keys`), igual ao do controle. (No S0 só tinha mudado a tecla H: `getElementById('room')?.`) | O do survivor mirava com o mouse e tinha teclas fixas (Shift corre, Espaço pula). Aqui Espaço rola/corre, Shift é modificador e o clique ataca |
+| `src/shared/characters/player-movement.js` (S2) | Fôlego: a recuperação espera `tune.staminaDelay` sem gastar (`p.restT`); o máximo é `p.staminaMax` (era 100 fixo) | DESIGN 3.1: 35/s depois de 0,5 s sem gastar; Alento aumenta o máximo. Sem `staminaDelay` (survivor) fica igual ao original |
+| `src/shared/characters/player.js` (S2) | Ação `roll`: encolhe (joelhos no peito, costas curvadas, braços nos joelhos) e dá uma cambalhota em volta do centro do corpo (`ROLL_C`). Rolando, não "planta" os pés nem faz a pose de mira | O survivor não rolava |
 
 ## Arquivos novos
 | Arquivo | O que é |
