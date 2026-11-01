@@ -117,7 +117,7 @@ export function CreateZombieModel(v = 0) {
   const neck = grp(spine, 0, B.neckY, 0)
   neck.rotation.order = 'YXZ'
   neck.add(mesh(g.head))
-  const arm = (s) => { const sh = grp(spine, s * B.shX, B.shY, 0); sh.add(mesh(g.arm)); return { sh, s } }
+  const arm = (s) => { const sh = grp(spine, s * B.shX, B.shY, 0); sh.add(mesh(g.arm)); return { sh, s, hand: grp(sh, 0, -0.62, 0.015) } }
   const arms = [arm(1), arm(-1)]
 
   // partes que podem ser arrancadas: malha escondida no osso + toco no lugar; dir = para onde o toco espirra
@@ -194,11 +194,16 @@ export function CreateZombieModel(v = 0) {
     hips.rotation.z = (0.08 * A + limp * 0.08 * moveW) * sn
     hips.rotation.y = -0.12 * A * sn
 
+    // ---- pose pedida pelo jogo (e.pose, peso e.poseW 0..1): ataques com arma ----
+    //      e.pose = { armL: [x, z], armR: [x, z] (ângulos do ombro, como abaixo), spineX, spineY }
+    const pw = (e.pose && e.poseW) || 0, po = e.pose || {}
+
     // ---- tronco e cabeça ----
     const bite = e.bite || 0
     spine.rotation.x = hunch + 0.08 * moveW + lungeW * 0.35 + grabW * 0.3 + bite * 0.2 - staggerW * 0.5 + crouchW * 0.55 - flinch * 2.2 * still - fall * hunch
+    spine.rotation.x = lerp(spine.rotation.x, po.spineX ?? spine.rotation.x, pw)
     spine.rotation.z = -hips.rotation.z * 0.4 + tilt * 0.25 + staggerW * Math.sin(t * 9) * 0.15 + grabW * Math.sin(t * 17) * 0.04
-    spine.rotation.y = 0.15 * A * sn
+    spine.rotation.y = lerp(0.15 * A * sn, po.spineY ?? 0, pw)
     neck.rotation.x = (-hunch * 0.7 - reachW * 0.15 + crouchW * 0.25 + Math.sin(t * 1.3 + seed) * 0.06 + bite * 0.55 + crouchW * Math.max(0, Math.sin(t * 6)) * 0.3 - flinch) * still * (1 - fall * 0.7)
     neck.rotation.z = (tilt + Math.sin(t * 0.8 + seed) * 0.12) * still
     neck.rotation.y = Math.sin(t * 0.5 + seed) * 0.25 * (1 - reachW) * (1 - fall) * still
@@ -215,6 +220,8 @@ export function CreateZombieModel(v = 0) {
       x = lerp(x, -1.4 + Math.sin(t * 15 + a.s) * 0.05, grabW); z = lerp(z, -a.s * 0.1, grabW) // agarrado nos ombros
       x = lerp(x, -2.0 + Math.sin(t * 12 + a.s) * 0.5, staggerW * 0.7); z = lerp(z, a.s * 0.6, staggerW) // abanando
       x = lerp(x, -0.9 + Math.sin(t * 5 + a.s * 2) * 0.2, crouchW) // comendo
+      const want = pw > 0 && (a.s > 0 ? po.armL : po.armR)
+      if (want) { x = lerp(x, want[0], pw); z = lerp(z, want[1], pw) } // pose do jogo (golpe com arma)
       x = lerp(x, -0.2 + pitch, fall); z = lerp(z, a.s * 1.15, fall) // deitado: braços abertos
       a.sh.rotation.x = x - pitch
       a.sh.rotation.z = z
@@ -228,5 +235,7 @@ export function CreateZombieModel(v = 0) {
     if (plant > 0.01) { root.updateMatrixWorld(true); hips.position.y += SoleDepth(root, knees) * plant }
   }
 
-  return { root, animate, sever, restore, has, flash }
+  // mãos: o jogo pendura armas aqui (eixo do braço = -Y; a mão fica na ponta)
+  const hands = { L: arms[0].hand, R: arms[1].hand }
+  return { root, animate, sever, restore, has, flash, hands }
 }

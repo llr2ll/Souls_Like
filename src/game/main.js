@@ -32,6 +32,15 @@ function Wire(camera) {
   events.on('swing', ({ p, kind }) => sfx('swing', { x: p.x, z: p.z, heavy: kind === 'heavy' })) // assobio da lâmina
   events.on('hit', ({ x, z, kind }) => { sfx('slice', { x, z }); if (kind === 'heavy') sfx('stomp', { x, z }) })
   events.on('lock', ({ target }) => sfx('ui', { f: target ? 1250 : 700 })) // travou / soltou: um "tic"
+  // inimigos: cada golpe tem o seu som de aviso (DESIGN 8): pancada = gemido grave, dois cortes = rosnado curto
+  const WARN = { smash: 'growl', cuts: 'snarl' }
+  events.on('enemy-alert', (e) => sfx('moan', { x: e.x, z: e.z }))
+  events.on('enemy-warn', ({ e, name }) => sfx(WARN[name] || 'growl', { x: e.x, z: e.z }))
+  events.on('enemy-swing', ({ e, name }) => sfx('swing', { x: e.x, z: e.z, heavy: name === 'smash' }))
+  events.on('enemy-stagger', (e) => sfx('zstagger', { x: e.x, z: e.z }))
+  events.on('enemy-death', (e) => sfx('zdeath', { x: e.x, z: e.z }))
+  events.on('hurt', ({ p }) => { sfx('hurt', { x: p.x, z: p.z }); sfx('impact', { x: p.x, z: p.z }) })
+  events.on('death', (p) => sfx('death', { x: p.x, z: p.z }))
 }
 
 // rastro da lâmina: uma amostra por quadro enquanto ela machuca (ponta da espada e o meio do caminho até o peito)
@@ -92,6 +101,7 @@ export async function LoadGame() {
 
   const game = CreateGame(scene)
   game.addPlayer('local', 'Peregrino') // sem menu: teclado e controle mexem o mesmo jogador
+  for (const e of BALANCE.enemies) game.spawn(e.kind, e.x, e.z, e.ry)
   const input = { players: game.players, setInput: game.setInput, act: game.act }
   BindKeyboard(input, BALANCE.keys)
   const help = document.getElementById('help')
@@ -101,7 +111,10 @@ export async function LoadGame() {
     Note(name ? `Controle conectado: ${name}` : 'Controle desconectado')
   })
   events.on('hit', (d) => Impact(d.kind, camera, pad)) // golpe acertou: tremor (só o pesado) e vibração
+  events.on('hurt', (d) => Impact(d.strong ? 'hurtStrong' : 'hurt', camera, pad)) // levou golpe
+  events.on('death', () => Note('A névoa te levou')) // a tela de morte de verdade chega no S8
   const hud = CreateHud(BALANCE.hud)
+  events.on('respawn', () => hud.reset())
   const trail = CreateTrail(scene, BALANCE.juice.trail)
   const lockMark = CreateLockMark(scene)
   if (import.meta.env.DEV) window.__game = game // só no npm run dev: para testes automáticos e depuração
@@ -117,12 +130,12 @@ export async function LoadGame() {
     wind.value += dt // vento: só um número; o balanço das folhas acontece na placa de vídeo
     const list = [...game.players.values()]
     SetEars(list) // som posicional: quem ouve é o jogador
-    shadows.update(list, [])
+    shadows.update(list, game.enemies)
     UpdateDoors(dt, list, []) // portas abrem quando alguém chega perto
     const me = list[0], lock = me && me.lock
     camera.update(dt, me, lock)
     lockMark.update(dt, lock)
-    hud.update(list[0])
+    hud.update(dt, me, camera.cam)
     BodySounds(dt, list[0])
     SampleTrail(trail, list[0])
     trail.update(dt)

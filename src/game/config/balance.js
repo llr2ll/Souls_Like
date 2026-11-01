@@ -49,6 +49,36 @@ export const BALANCE = {
   // Bonecos de treino (S3, S4): onde ficam na arena. Não morrem
   dummies: [{ x: 0, z: 2 }, { x: 4, z: 0 }],
 
+  // Inimigos na arena (S5): tipo, posição e para onde olham (radianos; 0 = para baixo na tela)
+  enemies: [{ kind: 'romeiro', x: -8, z: 13, ry: 0 }],
+
+  // Levar golpe (DESIGN 3.3)
+  hurt: {
+    stagger: 0.35, // tropeço: tanto tempo (s) sem poder agir
+    push: 2.5, // empurrão para trás no tropeço (m/s no começo)
+    respawn: 3.5, // morreu: volta ao começo depois de tanto tempo (s). O cruceiro e a cera chegam no S8
+  },
+
+  // Romeiro perdido (DESIGN 5). Golpes: warn = aviso (s), hits = duração de cada golpe (s), gap = pausa entre golpes,
+  // recover = janela para punir (s), range = alcance (m), arc = metade da abertura (graus), warnTurn = giro máximo no aviso (graus/s)
+  romeiro: {
+    hp: 55, posture: 30, r: 0.42,
+    walk: 1.6, // velocidade andando (m/s): mais lento que o jogador
+    turn: 4, // giro andando (radianos/s)
+    sight: 9, // enxerga o jogador a até tantos metros (e sem parede no meio)
+    forget: 16, // desiste se o jogador passar disso
+    leash: 18, // não se afasta mais que isso de onde nasceu
+    alert: 0.6, // ao ver o jogador: para e geme por tanto tempo (s)
+    reach: 1.9, // chega até essa distância antes de golpear
+    wait: [0.5, 1.1], // pausa entre ataques (s, sorteada)
+    stagger: 0.35, // tropeço ao levar golpe fora do ataque (s). No aviso e no golpe ele não para
+    sink: 4, // morto: afunda no chão depois de tanto tempo (s)
+    attacks: {
+      smash: { warn: 0.5, warnTurn: 180, hits: [0.15], dmg: 15, range: 2.3, arc: 35, recover: 0.8, lunge: 0.3 }, // pancada
+      cuts: { warn: 0.45, warnTurn: 180, hits: [0.12, 0.12], gap: 0.22, dmg: 10, range: 2.0, arc: 70, recover: 1.0 }, // dois cortes
+    },
+  },
+
   // Barras na tela
   hud: {
     px: 2, // pixels por ponto de fôlego (fôlego maior = barra mais comprida, como nos souls)
@@ -78,9 +108,10 @@ export const BALANCE = {
     // pausa no impacto: o jogo congela por tanto tempo (s) quando o golpe acerta. 0 desliga
     hitStop: { light: 0.03, heavy: 0.07, critical: 0.12, parry: 0.12 },
     // tremor de tela: quanto a câmera balança (m) em cada caso, e por quanto tempo (s). scale 0 desliga todos. Leve não treme
-    shake: { scale: 1, time: 0.25, heavy: 0.1, critical: 0.18, hitTaken: 0.15 },
+    // hurt = levou golpe; hurtStrong = levou golpe forte
+    shake: { scale: 1, time: 0.25, heavy: 0.1, critical: 0.18, hurt: 0.08, hurtStrong: 0.15 },
     // vibração do controle: [motor forte, motor fraco (0 a 1), duração (ms)]. scale 0 desliga
-    rumble: { scale: 1, light: [0.05, 0.3, 50], heavy: [0.35, 0.5, 110], critical: [0.7, 0.8, 200], hitTaken: [0.6, 0.6, 160] },
+    rumble: { scale: 1, light: [0.05, 0.3, 50], heavy: [0.35, 0.5, 110], critical: [0.7, 0.8, 200], hurt: [0.45, 0.4, 130], hurtStrong: [0.7, 0.6, 200] },
     trail: 0.12, // rastro da lâmina: some em tanto tempo (s). Só aparece no instante em que a lâmina machuca
   },
 

@@ -45,6 +45,17 @@ Cada PR acrescenta os itens dele aqui.
 | 33 | **Golpe travado**: com o stick apontando para outro lado, clique (ou RB) | O golpe vai no alvo travado | ☐ |
 | 34 | **Correr e rolar travado** | Correndo, ele vira para onde corre; rolando, rola para onde o stick aponta | ☐ |
 | 35 | **Soltar**: Q de novo; ou corra para longe; ou se esconda atrás da casa | Solta na hora; longe (18 m) solta sozinho; escondido, solta depois de 2 s | ☐ |
+| 36 | **Romeiro** (S5): vá para o sul da arena, perto da árvore da esquerda | Um morto com bordão e foice. Quando te vê, para, geme e vem andando devagar | ☐ |
+| 37 | **Pancada**: deixe ele chegar | Ergue o bordão bem alto (gemido grave), segura um instante e desce. Antes de descer dá tempo de reagir | ☐ |
+| 38 | **Dois cortes** (de perto) | Puxa a foice para trás com o corpo torcido (rosnado curto) e corta duas vezes | ☐ |
+| 39 | **Rolar para o lado** no fim do aviso | O golpe passa e não te acerta | ☐ |
+| 40 | **Punir**: depois da pancada o bordão fica no chão um instante | Dá para bater 1 ou 2 vezes. Ele pisca, tropeça e geme | ☐ |
+| 41 | **Bater no meio do aviso** | Ele não para: termina o golpe (não dá para trocar golpe com ele) | ☐ |
+| 42 | **Levar golpe** | Barra vermelha desce (o pedaço perdido fica claro e some devagar), você tropeça para trás, a tela treme e o controle vibra | ☐ |
+| 43 | **Travar nele** (Q) | Uma barrinha vermelha aparece sobre ele e desce a cada acerto | ☐ |
+| 44 | **Vencer** | Ele cai e, depois de uns segundos, afunda no chão | ☐ |
+| 45 | **Morrer** | "A névoa te levou". Em 3,5 s você volta ao começo com tudo cheio e o Romeiro volta para o lugar dele | ☐ |
+| 46 | **Fugir** | Longe o bastante, ele desiste e volta andando para onde estava | ☐ |
 
 ## Anotar o FPS
 O FPS aparece em verde no canto de cima, à direita. Anote depois de 1 minuto andando pela arena.

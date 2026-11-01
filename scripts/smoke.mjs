@@ -120,10 +120,16 @@ async function play(page) {
   await pad(() => { window.__pad.pad.axes[2] = 0 })
   await wait(600)
   await pad(() => { window.__pad.on = false })
+  // sul: onde fica o Romeiro (ele vê, geme e vem); trava nele e espera o ataque
+  await hold(['s'], 2600)
+  await k.press('q')
+  await wait(1800)
+  await shot('08-romeiro.jpg')
+  await k.press('Space'); await wait(1500)
   // resto do tempo: anda em volta (bate no muro e nas peças)
   const keys = ['s', 'd', 'w', 'a']
   for (let i = 0; Date.now() - t0 < PLAY_SECONDS * 1000; i++) await hold([keys[i % 4]], 900)
-  await shot('08-fim.jpg')
+  await shot('09-fim.jpg')
 }
 
 // controle de mentira: o navegador sem tela não tem controle, e o jogo só lê navigator.getGamepads() a cada quadro
