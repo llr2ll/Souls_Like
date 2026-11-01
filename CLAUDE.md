@@ -183,7 +183,9 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
   ou depois de 2 s sem ver (parede alta no meio; o boneco tem `h` baixo e não tapa). Travado e sem correr, o jogo manda `ax/az`
   na direção do alvo: o movimento copiado "mira" (anda de frente para o alvo, a `move.aim` m/s). Correr, rolar e golpear não miram.
   Golpe travado vai no alvo; rolamento vai para o stick.
-- Inimigos: o `main.js` põe os de `BALANCE.enemies` com `game.spawn(tipo, x, z, ry)`; o replay põe os dele na hora da cena (senão
+- Mapas: `BALANCE.maps.<nome>` = { start, dummies, cruceiros, enemies, … }. `CreateGame(scene, map)` usa largada, bonecos e cruceiros;
+  os inimigos do mapa o `main.js` põe. O replay usa sempre `maps.arena` (as cenas dele foram feitas nela).
+- Inimigos: o `main.js` põe os de `map.enemies` com `game.spawn(tipo, x, z, ry)`; o replay põe os dele na hora da cena (senão
   eles atrapalhariam as cenas antigas). Golpe inimigo = aviso (`warn`) → golpes (`hits`, com `gap` entre eles) → `recover` (a janela).
   No aviso gira até `warnTurn` graus/s; no golpe não gira; o alvo do golpe é travado no fim do aviso. Acerta se o jogador estiver no
   alcance, na abertura, à vista e **não invulnerável** (`p.safe`). Levou golpe no aviso ou no golpe: não para (sem troca de golpes);
@@ -193,7 +195,7 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
   no começo) como se tivesse descansado (vida, fôlego e cabaça cheios; inimigos renascem).
 - Cera (`p.cera`): ganha ao vencer (o inimigo tem `e.cera`, de `BALANCE.<tipo>.cera`). Morreu com cera: vira a vela da morte no último
   chão firme (`p.safeX/Z`, fora da água e no chão de fora); a vela antiga não pega apaga e a cera dela se perde. Pegar = E/A a 1,6 m.
-- Cruceiros: `BALANCE.cruceiros` (o da arena é o enfeite que já existia em (9, 3)). Descansar = E/A a 2,8 m; não dá com inimigo
+- Cruceiros: `map.cruceiros` (o da arena é o enfeite que já existia em (9, 3)). Descansar = E/A a 2,8 m; não dá com inimigo
   atrás de você a menos de 15 m. Descanso: vida/fôlego/cabaça cheios, inimigos resetados, `p.home` = esse cruceiro, salva.
 - Save: `progress.snapshot()` (formato do DESIGN 7 + `acesos` e `pao`) → aviso `save` → `localStorage['camino-das-animas-save']`.
   Salva ao descansar, morrer e pegar a vela. Ao abrir a página, `game.load()` continua de onde parou. `?novo` no endereço apaga.
@@ -253,3 +255,5 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
 - **s8-morte-cera-cruceiro (S8)** — `progress.js`: cruceiro da arena vira ponto de descanso (E/A; "Vela acesa" no 1º; cura, enche a
   cabaça, inimigos voltam, salva), cera ao vencer (Romeiro 30; placar de cera), morte com tela escura e volta no cruceiro, vela da
   morte com facho de luz e zumbido (receita `candle` nova no `sfx.js`), uma chance de pegar, save no navegador (`?novo` apaga).
+- **s9a-mapas** (organização, replay igual) — largada, bonecos, cruceiros e inimigos saíram do topo do `balance.js` para
+  `BALANCE.maps.arena`; `CreateGame(scene, map)` e `CreateProgress(scene, enemies, map)` recebem o mapa. Prepara a área da demo (S9).

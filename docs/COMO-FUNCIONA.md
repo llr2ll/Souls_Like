@@ -58,13 +58,13 @@ Exemplos:
 - Travar no alvo: alcance e distância de soltar em `lock`. Quanto a câmera se afasta travada: `lockMax` em `camera`.
   Andar travado mais rápido: `aim` em `move`.
 - Romeiro: tudo em `romeiro` (vida, velocidade, quanto enxerga). Cada golpe dele em `attacks`: `warn` é o aviso (mais alto = mais
-  fácil), `recover` é a janela para punir, `dmg` o dano. Onde ele fica na arena: `enemies`.
+  fácil), `recover` é a janela para punir, `dmg` o dano. Onde ele fica: `maps` → o mapa → `enemies`.
 - Escudo: `guard` (velocidade, quanto fôlego cada golpe segurado gasta). Aparo: `parry.window` (maior = mais fácil).
 - Postura: `posture` (quanto tempo até esvaziar) e, no inimigo, `posture` e `broken` (quanto tempo fica de joelhos).
   Golpe crítico: `critical`.
 - Cura: `gourd` (goles, quanto cura, em que instante a cura entra) e `bread`. Andar bebendo: `usingSpeed`.
   A borda vermelha de pouca vida: `hud.danger`.
-- Cruceiro: `cruceiros` (onde ficam) e `rest` (distância para descansar). Cera de cada inimigo: `cera` dentro dele (ex.: `romeiro.cera`).
+- Cruceiro: `maps` → o mapa → `cruceiros` (onde ficam) e `rest` (distância para descansar). Cera de cada inimigo: `cera` dentro dele (ex.: `romeiro.cera`).
   Tempo da tela escura ao morrer: `hurt.respawn`.
 
 ## Como testar

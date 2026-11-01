@@ -1,19 +1,19 @@
 [0s] 1/3 compilando o jogoâ€¦
-[2s] 2/3 subindo a pÃ¡ginaâ€¦
-[3s] 3/3 abrindo o jogo no navegador sem telaâ€¦
-[6s]    jogo desenhando (FPS: 1)
-[6s]    jogando 40 sâ€¦
-[6s]    captura 01-inicio.jpg
-[10s]    captura 02-golpe.jpg
-[13s]    captura 03-trava.jpg
-[17s]    captura 04-cruceiro.jpg
-[20s]    captura 05-rolando.jpg
-[29s]    captura 06-casa.jpg
-[31s]    captura 07-controle.jpg
-[36s]    captura 08-folego.jpg
-[43s]    captura 09-romeiro.jpg
-[45s]    captura 10-escudo.jpg
-[50s]    captura 11-cabaca.jpg
-[50s]    captura 12-fim.jpg
+[3s] 2/3 subindo a pÃ¡ginaâ€¦
+[5s] 3/3 abrindo o jogo no navegador sem telaâ€¦
+[11s]    jogo desenhando (FPS: 1)
+[11s]    jogando 40 sâ€¦
+[13s]    captura 01-inicio.jpg
+[18s]    captura 02-golpe.jpg
+[21s]    captura 03-trava.jpg
+[26s]    captura 04-cruceiro.jpg
+[29s]    captura 05-rolando.jpg
+[38s]    captura 06-casa.jpg
+[41s]    captura 07-controle.jpg
+[45s]    captura 08-folego.jpg
+[53s]    captura 09-romeiro.jpg
+[55s]    captura 10-escudo.jpg
+[60s]    captura 11-cabaca.jpg
+[61s]    captura 12-fim.jpg
 
 PASSOU
