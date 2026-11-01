@@ -19,12 +19,22 @@ import { CreateHud } from './hud'
 import { CreateTrail } from './fx/trail'
 import { CreateLockMark } from './fx/lock-mark'
 import { BuildArena } from './world/arena'
+import { BuildSantaBaia, SantaBaiaGround, WATER_Y } from './world/santa-baia'
 import { BALANCE } from './config/balance'
+
+// qual mapa: o vale da demo; com ?arena no endereço, a arena de teste (S0–S8)
+const MAP = new URLSearchParams(location.search).has('arena') ? 'arena' : 'demo'
+// monta o cenário do mapa (o chão vem antes: as casas e os inimigos perguntam a altura dele)
+function BuildMap(scene, name) {
+  const map = BALANCE.maps[name]
+  if (name === 'arena') { SetGround(() => 0); BuildArena(scene, map.size); return { map, world: null } }
+  SetGround(SantaBaiaGround, WATER_Y)
+  return { map, world: BuildSantaBaia(scene, map) }
+}
 
 // O motor e as peças copiadas não conhecem este jogo: aqui o jogo liga as peças (chão, água, sons do mundo).
 function Wire(camera) {
-  SetGround(() => 0) // arena plana, sem água
-  SetDeepTest(TooDeep) // água funda bloqueia (não há água ainda)
+  SetDeepTest(TooDeep) // água funda bloqueia
   SetCameraSlope(camera.slope) // recorte das casas com a inclinação da câmera deste jogo
   events.on('door-open', (d) => sfx('dooropen', d))
   events.on('door-close', (d) => sfx('doorclose', d))
@@ -118,8 +128,19 @@ function Title(text) {
   titleTimer = setTimeout(() => el.classList.remove('on'), 2600)
 }
 
-// save no navegador (DESIGN 7). Abrir a página com ?novo apaga e começa do zero. Navegador sem permissão: joga sem salvar
-const SAVE_KEY = 'camino-das-animas-save'
+// achado: papel com título e texto curto no meio de baixo por uns segundos (DESIGN 6: história pelo mundo, sem cutscene)
+let paperTimer
+function Paper(title, text) {
+  const el = document.getElementById('paper')
+  el.querySelector('b').textContent = title
+  el.querySelector('p').textContent = text
+  el.classList.add('on')
+  clearTimeout(paperTimer)
+  paperTimer = setTimeout(() => el.classList.remove('on'), 4000 + text.length * 45)
+}
+
+// save no navegador (DESIGN 7), um por mapa. Abrir a página com ?novo apaga e começa do zero. Navegador sem permissão: joga sem salvar
+const SAVE_KEY = MAP === 'demo' ? 'camino-das-animas-save' : `camino-das-animas-save-${MAP}`
 function ReadSave() {
   try {
     if (new URLSearchParams(location.search).has('novo')) { localStorage.removeItem(SAVE_KEY); return null }
@@ -141,6 +162,15 @@ function WireProgress(fx) {
   events.on('cera', ({ e }) => { sfx('buff', at(e)); fx.burst(e.x, 1.0, e.z, 0xf5e6b8, 10, 2.2, 0.8, 0.8) }) // derrete como vela
   events.on('candle-pick', ({ p, cera }) => { sfx('supply'); Note(`Cera recuperada: ${cera}`); fx.flash(p.x, 0.5, p.z, 0.7, 0xffd27a, 0.5) })
   events.on('candle-lost', ({ cera }) => Note(`A vela apagou: ${cera} de cera perdida`))
+  // itens, atalhos, portão fechado, névoa
+  events.on('pickup', ({ p, it }) => {
+    sfx('pin', at(p))
+    if (it.kind === 'bread') Note('Pão de milho')
+    else Paper(it.title, it.text)
+  })
+  events.on('shortcut', ({ s }) => { sfx('bang', { x: s.gate.x, z: s.gate.z }); sfx('dooropen', { x: s.gate.x, z: s.gate.z }); Title('Atalho aberto') })
+  events.on('locked', () => { sfx('bang'); Note('Fechado. Não abre deste lado.') })
+  events.on('fog', () => Note('A névoa fecha a entrada do castro… por enquanto.'))
   const death = document.getElementById('death')
   events.on('death', () => { sfx('gameover'); setTimeout(() => death.classList.add('on'), 500) })
   events.on('respawn', () => death.classList.remove('on'))
@@ -167,12 +197,11 @@ export async function LoadGame() {
   Wire(camera)
   Light(scene, renderer)
   const shadows = CreateEntityShadows(scene)
-  const map = BALANCE.maps.arena
-  BuildArena(scene, map.size)
+  const { map, world } = BuildMap(scene, MAP)
 
-  const game = CreateGame(scene, map)
+  const game = CreateGame(scene, map, world)
   game.addPlayer('local', 'Peregrino') // sem menu: teclado e controle mexem o mesmo jogador
-  for (const e of map.enemies) game.spawn(e.kind, e.x, e.z, e.ry)
+  for (const e of map.enemies) game.spawn(e.kind, e.x, e.z, e.ry, { sit: e.sit })
   if (game.load(ReadSave())) Note('Continuando de onde parou') // fechou a página e abriu: continua
   const input = { players: game.players, setInput: game.setInput, act: game.act }
   BindKeyboard(input, BALANCE.keys)
@@ -223,6 +252,7 @@ export async function LoadGame() {
     SampleTrail(trail, list[0])
     trail.update(dt)
     fx.update(dt)
+    if (world) world.update(dt) // portões, alavancas, névoa, fogueira
     UpdateBuildings(list) // dentro de casa (ou atrás dela): o telhado some
     renderer.render(scene, camera.cam)
     Fps()

@@ -53,7 +53,7 @@ export const BALANCE = {
     heal: 40, // vida que o gole cura
   },
   bread: {
-    start: 3, // pães com que você começa (provisório: na área da demo eles ficam pelo caminho)
+    start: 0, // pães com que você começa (na área da demo eles ficam pelo caminho; a arena de teste dá 3)
     time: 0.5, // duração (s); a cura entra no fim
     heal: 15,
   },
@@ -197,9 +197,54 @@ export const BALANCE = {
     arena: { // arena de teste (S0–S8)
       size: 40, // lado (m)
       start: { x: 0, z: 6 },
+      bread: 3, // pães na largada (aqui não há pão no chão)
       dummies: [{ x: 0, z: 2 }, { x: 4, z: 0 }],
       cruceiros: [{ id: 'arena', name: 'Cruceiro da arena', x: 9, z: 3 }],
       enemies: [{ kind: 'romeiro', x: -8, z: 13, ry: 0 }],
+    },
+    // Val de Santa Baia (DESIGN 4), em blocos simples (S9). O cenário (muros, casas, árvores) fica em world/santa-baia.js
+    demo: {
+      start: { x: 14, z: 72 }, // ao sul da Ponte Vella
+      cruceiros: [
+        { id: 'ponte', name: 'Cruceiro da Ponte', x: 22, z: 46 },
+        { id: 'castro', name: 'Cruceiro do Castro', x: 36, z: -50 },
+      ],
+      // 16 romeiros (DESIGN 4): ponte 2, rua de baixo 3 (sentados ao lume), rua de cima 2, adro 3, mosteiro 4, subida 2.
+      // ry: 0 = olhando para baixo na tela (sul); π = norte (de costas para quem vem da ponte). sit = sentado até te ver
+      enemies: [
+        { kind: 'romeiro', x: 14, z: 49, ry: Math.PI }, { kind: 'romeiro', x: 5, z: 44, ry: 0 },
+        { kind: 'romeiro', x: -21.4, z: 29.3, ry: 1.1, sit: true }, { kind: 'romeiro', x: -18.6, z: 29.3, ry: -1.1, sit: true },
+        { kind: 'romeiro', x: -20, z: 31.6, ry: Math.PI, sit: true },
+        { kind: 'romeiro', x: -26, z: 0, ry: Math.PI / 2 }, { kind: 'romeiro', x: -10, z: -1, ry: -Math.PI / 2 },
+        { kind: 'romeiro', x: 2.2, z: -8.5, ry: 0 }, { kind: 'romeiro', x: 4.8, z: -14.5, ry: 0.5 }, { kind: 'romeiro', x: 9, z: -6.5, ry: 0 },
+        { kind: 'romeiro', x: 30, z: -14, ry: 0 }, { kind: 'romeiro', x: 42, z: -14.5, ry: 0 },
+        { kind: 'romeiro', x: 30.5, z: -28, ry: Math.PI }, { kind: 'romeiro', x: 41.5, z: -27.5, ry: Math.PI },
+        { kind: 'romeiro', x: 32, z: -42, ry: 0 }, { kind: 'romeiro', x: 42, z: -46, ry: 0 },
+      ],
+      // itens no chão (E/A para pegar): pão de milho (cura) e achados (texto curto). Pegou: não volta (fica no save)
+      items: [
+        { id: 'pao-fonte', kind: 'bread', x: 2, z: 32.5 },
+        { id: 'pao-adro', kind: 'bread', x: 0.5, z: -24 },
+        { id: 'pao-subida', kind: 'bread', x: 46, z: -40 },
+        { id: 'achado-ponte', kind: 'note', x: 17.5, z: 68.5, title: 'Inscrição na pedra da ponte',
+          text: 'Peregrino: trava o olhar no morto (Q ou R3). Espera o golpe, rola para o lado (Espaço ou B) e castiga enquanto ele se recompõe.' },
+        { id: 'achado-lume', kind: 'note', x: -24, z: 32.5, title: 'Credencial manchada',
+          text: 'Dois carimbos de Ourense, nenhum depois da ponte. No verso: "Esperei meu irmão três dias."' },
+        { id: 'achado-ferreiro', kind: 'note', x: -33, z: -5.5, title: 'Bilhete na porta do ferreiro',
+          text: 'Fechei por dentro. Quem passar, não bata. O caminho de cima eu abro quando a névoa baixar.' },
+        { id: 'achado-adro', kind: 'note', x: 1.5, z: -21, title: 'Lápide',
+          text: 'Aqui descansa quem chegou cedo demais. Rezai pelos que ainda andam.' },
+        { id: 'achado-horas', kind: 'note', x: 33, z: -24, title: 'Folha de um livro de horas',
+          text: 'A vela segura a névoa. Enquanto ela arder no cruceiro, descansai. Quando apagar, os mortos voltam ao caminho.' },
+        { id: 'achado-porteiro', kind: 'note', x: 46, z: -10, title: 'Carta ao irmão porteiro',
+          text: 'Irmão: a alavanca do portão sul fica junto ao muro, à direita de quem sai. Não abras para ninguém de fora.' },
+      ],
+      // atalhos (DESIGN 4): alavanca de um lado abre o portão; do outro lado ele não abre
+      shortcuts: [
+        { id: 'portao', name: 'portão do mosteiro', lever: { x: 32.4, z: -10.2 }, gate: { x: 36, z: -8, w: 4 }, outside: { x: 36, z: -5.6 } },
+      ],
+      // névoa na entrada do castro: não passa até o chefe chegar (S11)
+      fogs: [{ id: 'castro', x: 32, z: -56, w: 4 }],
     },
   },
 }

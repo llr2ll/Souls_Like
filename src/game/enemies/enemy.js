@@ -1,4 +1,5 @@
 import { resolve } from '../../engine/world/collision'
+import { GroundAt } from '../../engine/world/ground'
 import { events } from '../../engine/core/events'
 import { BALANCE } from '../config/balance'
 
@@ -19,11 +20,13 @@ const PLAYER_R = 0.45
 // de joelhos: braços caídos, tronco curvado (o modelo ajoelha com o estado 'feed' do zumbi)
 const BROKEN_POSE = { armR: [0.35, -0.25], armL: [0.35, 0.25], spineX: 0.75, spineY: 0 }
 
-export function CreateEnemy(scene, spec, x, z, ry, ctx) {
+// opts.sit: sentado (ajoelhado ao lume) até ver o jogador
+export function CreateEnemy(scene, spec, x, z, ry, ctx, opts = {}) {
   const T = spec.tune
   const model = spec.build()
   scene.add(model.root)
   const e = {
+    sit: !!opts.sit,
     id: `${spec.kind}-${x},${z}`, kind: spec.kind, x, z, y: 0, r: T.r, facing: ry, home: { x, z, ry },
     hp: T.hp, maxHp: T.hp, posture: 0, maxPosture: T.posture, dead: false, model, cera: T.cera || 0,
     state: 'idle', stT: 0, vel: 0, hitT: 0, fallDir: -1, pose: null, poseW: 0, waitT: 0, target: null,
@@ -129,10 +132,11 @@ export function CreateEnemy(scene, spec, x, z, ry, ctx) {
         break
       case 'dead':
         // fica caído; depois de um tempo afunda no chão e some
-        if (e.stT > T.sink) e.y = -Math.min(1.5, (e.stT - T.sink) * 0.6)
         model.root.visible = e.stT < T.sink + 2.5
         break
     }
+    // pés no chão (subidas); morto, afunda devagar
+    e.y = GroundAt(e.x, e.z) - (e.state === 'dead' && e.stT > T.sink ? Math.min(1.5, (e.stT - T.sink) * 0.6) : 0)
     // postura esvazia sozinha depois de um tempo sem levar golpe (de joelhos, não)
     if (e.state !== 'broken' && (e.postureT += dt) > BALANCE.posture.delay) e.posture = Math.max(0, e.posture - BALANCE.posture.regen * dt)
     // pose do corpo: entra rápido no ataque, sai devagar
@@ -142,7 +146,8 @@ export function CreateEnemy(scene, spec, x, z, ry, ctx) {
     e.poseW += ((posed ? 1 : 0) - e.poseW) * (1 - Math.exp(-(posed ? 18 : 6) * dt))
     model.root.position.set(e.x, e.y, e.z)
     model.root.rotation.y = e.facing
-    const anim = { dead: 'dead', stagger: 'stagger', broken: 'feed' }[e.state] || 'idle' // 'feed' = o zumbi ajoelhado
+    // 'feed' = o zumbi ajoelhado: de joelhos (postura quebrada) ou sentado ao lume esperando
+    const anim = { dead: 'dead', stagger: 'stagger', broken: 'feed' }[e.state] || (e.sit && e.state === 'idle' ? 'feed' : 'idle')
     model.animate(dt, { state: anim, vel: e.vel, hitT: e.hitT, stT: e.stT, fallDir: e.fallDir, pose: e.pose, poseW: e.poseW })
   }
 

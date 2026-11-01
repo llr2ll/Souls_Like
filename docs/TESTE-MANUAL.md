@@ -80,6 +80,25 @@ Cada PR acrescenta os itens dele aqui.
 | 68 | **A vela**: volte onde morreu | Uma vela acesa no chão com um facho de luz fraco (dá para ver de longe) e um zumbido baixo perto. "E · Pegar a cera (30)" | ☐ |
 | 69 | **Morrer duas vezes**: morra com cera e, antes de pegar a vela, morra de novo | "A vela apagou: … de cera perdida" | ☐ |
 | 70 | **Fechar e abrir**: feche a aba e abra o jogo de novo (sem `?novo`) | "Continuando de onde parou": na frente do cruceiro, com a cera e a vela onde estavam | ☐ |
+
+> A partir do S9 o jogo abre no **vale** (Val de Santa Baia). Os itens 1–70 continuam valendo na arena: abra com `?arena` no fim do endereço.
+
+| # | Teste (S9, o vale) | O que você deve ver | ✓ |
+|---|---|---|---|
+| 71 | **Abrir** com `?novo` | Você ao sul de um rio, com uma ponte de pedra ao norte e um brilho no chão perto de uma pedra | ☐ |
+| 72 | **Achado**: chegue no brilho e aperte E | Um papel com a inscrição (dicas de controle). Some sozinho | ☐ |
+| 73 | **Rio**: tente entrar na água fora da ponte | Na beira dá pé; mais para o meio, ele não entra | ☐ |
+| 74 | **Ponte** | Dois romeiros do outro lado (um de costas). O cruceiro da ponte logo à direita: descanse nele ("Vela acesa") | ☐ |
+| 75 | **Rua de baixo** (a oeste do prado) | Três romeiros ajoelhados em volta de uma fogueira; levantam quando te veem. Pão perto do poço | ☐ |
+| 76 | **Rua de cima** (pela ponta oeste) | Casas, um hórreo, dois romeiros; um bilhete na porta da casa grande (do ferreiro) | ☐ |
+| 77 | **Adro**: siga para leste | Igreja, cemitério com covas, três romeiros, pão e uma lápide para ler | ☐ |
+| 78 | **Mosteiro**: passagem estreita a leste do adro | Claustro com colunas, quatro romeiros, uma fonte no meio, dois papéis para ler | ☐ |
+| 79 | **Corredor**: do prado do cruceiro, entre pelo corredor de muros a leste e suba | No fim, um portão de madeira: "Fechado. Não abre deste lado." | ☐ |
+| 80 | **Atalho**: dentro do mosteiro, ache a alavanca junto ao portão sul e aperte E | "Atalho aberto", o portão abre. Descendo o corredor você sai no prado do cruceiro da ponte | ☐ |
+| 81 | **Morrer depois do atalho** | O portão continua aberto (fica salvo) | ☐ |
+| 82 | **Subida e castro**: pelo portão norte do mosteiro | Subida com dois romeiros, o cruceiro do castro e uma parede de névoa: "A névoa fecha a entrada do castro… por enquanto" | ☐ |
+| 83 | **Souto**: a oeste da subida | Bosque de castanheiros com uma clareira vazia (o Lobishome chega no S10) | ☐ |
+| 84 | **FPS no vale** | Anote o FPS andando pela vila e no mosteiro | ☐ |
 ## Anotar o FPS
 O FPS aparece em verde no canto de cima, à direita. Anote depois de 1 minuto andando pela arena.
 

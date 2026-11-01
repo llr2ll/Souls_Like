@@ -36,6 +36,11 @@ O comando `npm run check` confere essa regra sozinho.
 - Os botões já seguem o plano (DESIGN 3.7), mas cada um só ganha efeito no PR dele (atacar no S3, travar no S4…).
 - Vibração: funciona no Chrome e no Edge. No Firefox o controle funciona, mas não vibra.
 
+## Os mapas
+- O jogo abre no **Val de Santa Baia**, a área da demo (S9, ainda em blocos simples: a arte vem no S13).
+- Com `?arena` no fim do endereço, abre a **arena de teste** (onde nasceram o rolamento, os golpes e o Romeiro).
+- Cada mapa tem o seu save.
+
 ## Progresso salvo
 - O jogo salva sozinho no navegador ao descansar no cruceiro, ao morrer e ao pegar a cera. Fechou a página e abriu: continua.
 - Para começar do zero, abra o jogo com `?novo` no fim do endereço (ex.: `https://…-5173.app.github.dev/?novo`).
@@ -66,6 +71,8 @@ Exemplos:
   A borda vermelha de pouca vida: `hud.danger`.
 - Cruceiro: `maps` → o mapa → `cruceiros` (onde ficam) e `rest` (distância para descansar). Cera de cada inimigo: `cera` dentro dele (ex.: `romeiro.cera`).
   Tempo da tela escura ao morrer: `hurt.respawn`.
+- O vale: em `maps` → `demo` ficam a largada, os cruceiros, onde cada romeiro fica, os pães e os textos dos achados
+  (dá para reescrever os textos ali). O desenho do lugar (muros, casas, árvores) fica em `src/game/world/santa-baia.js`.
 
 ## Como testar
 - Depois de cada PR: siga `docs/TESTE-MANUAL.md` (poucos minutos).

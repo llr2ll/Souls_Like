@@ -21,6 +21,9 @@
 // leva golpe no meio de um gole (perde), esvazia a cabaça e tenta beber vazia. O hash conta curas, perdas e vazios.
 // S8 (180–203 s): vence um Romeiro (+30 de cera), descansa no cruceiro, morre longe (a cera vira vela), volta no cruceiro, pega a
 // vela, morre de novo e morre outra vez antes de pegar (a cera se perde). Salva e carrega: tem de dar o mesmo.
+// S9 (+42 s, outro mapa): monta o Val de Santa Baia no mesmo processo (limpa colisões e casas da arena). Lê a inscrição da ponte,
+// tenta entrar no rio (a parte funda barra), atravessa a ponte e descansa no ✝ da Ponte, pega o pão da fonte, empurra o portão
+// do mosteiro por fora (fechado), puxa a alavanca por dentro, desce o corredor até o prado do cruceiro, tenta passar a névoa.
 // Cada PR que cria jogabilidade acrescenta a sua cena ao roteiro.
 // Rode sempre em processo novo (node scripts/sim.mjs): o Three.js e o Vite guardam estado entre rodadas.
 // SIM_TRACE=arquivo grava um rastro quadro a quadro (para achar onde dois replays se separam).
@@ -225,9 +228,56 @@ export async function SimFingerprint(vite, frames = 6100) {
       const c = camera.cam.position
       if (trace) trace.push(`${f} r${calls} ${p.x.toFixed(4)},${p.z.toFixed(4)},${p.gy.toFixed(3)},${p.lv},${p.stamina.toFixed(2)} cam ${c.x.toFixed(4)},${c.z.toFixed(4)} roll ${p.rollT.toFixed(3)}${p.safe ? ' safe' : ''}${p.running ? ' run' : ''}${p.atk ? ` atk ${p.atk.kind}${p.atk.n} ${p.atk.t.toFixed(3)}` : ''} dmg ${game.targets.map((e) => e.dmg).join('/')}${p.lock ? ` lock ${p.lock.id} lost ${p.lockLost.toFixed(2)} face ${p.facing.toFixed(2)}` : ''} hp ${p.hp}${p.hurtT > 0 ? ' HURT' : ''}${p.dead ? ' DEAD' : ''}${p.guard ? ' GUARD' : ''}${p.parryT >= 0 ? ' PARRY' : ''}${p.stunT > 0 ? ' STUN' : ''}${p.use ? ` USE ${p.use} ${p.useT.toFixed(2)}` : ''} g${p.gourd} b${p.bread} cera ${p.cera}${game.progress.candle ? ` vela ${game.progress.candle.cera}` : ''}${game.enemies.map((e) => ` | ${e.kind} ${e.x.toFixed(2)},${e.z.toFixed(2)} ${e.state}${e.atk ? ':' + e.atk.name + ':' + e.atk.phase : ''} hp ${e.hp} pos ${e.posture.toFixed(1)}`).join('')}`)
     }
+    // ---- S9: o vale da demo (mesmo processo): limpa colisões e casas da arena e monta o vale ----
+    const s9 = { pickups: [], shortcut: 0, locked: 0, fog: 0, rest: 0, riverZ: null, laneEnd: null, fogZ: null, roundtrip: null }
+    events.on('pickup', ({ it }) => s9.pickups.push(it.id))
+    events.on('shortcut', () => s9.shortcut++)
+    events.on('locked', () => s9.locked++)
+    events.on('fog', () => s9.fog++)
+    events.on('rest', ({ c }) => { if (c.id === 'ponte') s9.rest++ })
+    const { ResetColliders } = await load('/src/engine/world/collision.js')
+    const { BuildSantaBaia, SantaBaiaGround, WATER_Y } = await load('/src/game/world/santa-baia.js')
+    ResetColliders(); reg.ResetBuildings()
+    const scene2 = new THREE.Scene(), MAP = BALANCE.maps.demo
+    SetGround(SantaBaiaGround, WATER_Y)
+    const world = BuildSantaBaia(scene2, MAP)
+    const g2 = CreateGame(scene2, MAP, world)
+    g2.addPlayer('local', 'Peregrino')
+    const q = g2.players.get('local')
+    const go = (t) => { const dx = t.x - q.x, dz = t.z - q.z, l = Math.hypot(dx, dz); return l < 0.3 ? [0, 0] : [dx / l, dz / l] }
+    const tp = (x, z) => Object.assign(q, { x, z, vx: 0, vz: 0, safeX: x, safeZ: z })
+    for (let f = 0; f < 1250; f++) {
+      now += dt * 1000
+      let m = [0, 0], pr = null
+      if (f < 40) m = go({ x: 17.5, z: 69.5 }) // até a pedra da ponte
+      else if (f === 42) pr = 'use' // lê a inscrição
+      else if (f < 130) m = go({ x: 7, z: 60 }) // tenta entrar no rio (a parte funda barra)
+      else if (f === 130) s9.riverZ = Math.round(q.z * 100) / 100
+      else if (f < 380) m = f < 180 ? go({ x: 14, z: 66 }) : f < 280 ? go({ x: 14, z: 48 }) : go({ x: 22, z: 48.4 }) // pela ponte até o cruceiro
+      else if (f === 382) pr = 'use' // descansa no ✝ da Ponte
+      else if (f === 400) tp(2, 33.6)
+      else if (f === 402) pr = 'use' // pão da fonte
+      else if (f === 440) tp(36, -4.4)
+      else if (f === 442) pr = 'use' // portão por fora: fechado
+      else if (f === 470) tp(32.4, -11.4)
+      else if (f === 472) pr = 'use' // alavanca
+      else if (f > 490 && f < 860) m = f < 510 ? go({ x: 36, z: -10 }) : go({ x: 36, z: 42 }) // atravessa o portão e desce o corredor
+      else if (f === 860) s9.laneEnd = [Math.round(q.x * 100) / 100, Math.round(q.z * 100) / 100]
+      else if (f === 890) tp(32, -53.6)
+      else if (f === 892) pr = 'use' // névoa
+      else if (f > 900 && f < 1000) m = go({ x: 32, z: -62 }) // tenta atravessar a névoa
+      else if (f === 1000) s9.fogZ = Math.round(q.z * 100) / 100
+      else if (f === 1040) { const d = g2.save(); g2.load(JSON.parse(JSON.stringify(d))); s9.roundtrip = JSON.stringify(g2.save()) === JSON.stringify(d) }
+      g2.setInput('local', { mx: m[0], mz: m[1], ax: 0, az: 0, run: 0 })
+      if (pr) g2.act('local', pr)
+      g2.update(dt)
+      if (trace) trace.push(`v${f} ${q.x.toFixed(3)},${q.z.toFixed(3)},${q.gy.toFixed(3)} b${q.bread} gate ${world.gates.portao.isOpen}`)
+    }
+
     if (trace) (await import('node:fs')).writeFileSync(process.env.SIM_TRACE, trace.join('\n'))
     const r = (v) => (typeof v === 'number' ? Math.round(v * 1e6) / 1e6 : v)
     const state = {
+      s9, vale: [r(q.x), r(q.z), r(q.gy), q.bread, q.home],
       players: [...game.players.values()].map((q) => [q.id, r(q.x), r(q.z), r(q.gy), q.lv, r(q.stamina), r(q.facing), q.tired]),
       door: door ? [r(door.x), r(door.z)] : null,
       camera: [r(camera.cam.position.x), r(camera.cam.position.y), r(camera.cam.position.z)],
@@ -237,7 +287,7 @@ export async function SimFingerprint(vite, frames = 6100) {
     }
     const [, x, z, , lv, st] = state.players[0]
     const t0 = game.targets[0]
-    return { hash: createHash('sha256').update(JSON.stringify(state)).digest('hex'), summary: `jogador em (${x.toFixed(2)}, ${z.toFixed(2)}) · andar ${lv} · fôlego ${Math.round(st)} · ${rolls} rolamentos · boneco: ${t0.hits} golpes, ${t0.dmg} de dano · levou ${hurts} golpes, ${deaths} morte(s), ${kills} inimigo(s) vencido(s) · escudo ${s6.block}, aparos ${s6.parry}, guarda quebrada ${s6.guardBreak}, joelhos ${s6.broken}, críticos ${s6.critical} · curas ${s7.healed}, perdidas ${s7.lost}, vazio ${s7.empty}, vida ${p.hp}, goles ${p.gourd}, pães ${p.bread} · descansos ${s8.rest}, velas ${s8.candle}, pegas ${s8.pick}, perdidas ${s8.lost}, cera ${p.cera}, save ${s8.roundtrip ? 'ok' : 'DIFERENTE'}${door ? '' : ' · casa sem porta?'}` }
+    return { hash: createHash('sha256').update(JSON.stringify(state)).digest('hex'), summary: `jogador em (${x.toFixed(2)}, ${z.toFixed(2)}) · andar ${lv} · fôlego ${Math.round(st)} · ${rolls} rolamentos · boneco: ${t0.hits} golpes, ${t0.dmg} de dano · levou ${hurts} golpes, ${deaths} morte(s), ${kills} inimigo(s) vencido(s) · escudo ${s6.block}, aparos ${s6.parry}, guarda quebrada ${s6.guardBreak}, joelhos ${s6.broken}, críticos ${s6.critical} · curas ${s7.healed}, perdidas ${s7.lost}, vazio ${s7.empty}, vida ${p.hp}, goles ${p.gourd}, pães ${p.bread} · descansos ${s8.rest}, velas ${s8.candle}, pegas ${s8.pick}, perdidas ${s8.lost}, cera ${p.cera}, save ${s8.roundtrip ? 'ok' : 'DIFERENTE'} · vale: itens ${s9.pickups.length}, portão fechado ${s9.locked}, atalho ${s9.shortcut}, fim do corredor (${s9.laneEnd}), névoa ${s9.fog} (parou em z ${s9.fogZ}), rio (parou em z ${s9.riverZ}), save ${s9.roundtrip ? 'ok' : 'DIFERENTE'}${door ? '' : ' · casa sem porta?'}` }
   } finally {
     Math.random = realRandom
     Error.stackTraceLimit = realLimit

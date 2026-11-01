@@ -72,4 +72,4 @@ const SPEC = {
   },
 }
 
-export const CreateRomeiro = (scene, x, z, ry, ctx) => CreateEnemy(scene, SPEC, x, z, ry, ctx)
+export const CreateRomeiro = (scene, x, z, ry, ctx, opts) => CreateEnemy(scene, SPEC, x, z, ry, ctx, opts)
