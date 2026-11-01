@@ -32,13 +32,16 @@ npm run build    # gera dist/ (para hospedar)
 - `npm run check` — poucos segundos, sem navegador. Rodar SEMPRE antes de abrir PR. Duas verificações:
   1. **Camadas:** imports só descem (`src/game` → `src/shared` → `src/engine`); import para arquivo ou pacote inexistente falha;
      a página tem de apontar para scripts que existem.
-  2. **Jogo (replay):** `scripts/sim.mjs` joga 60 s com sorteio e relógio fixos e compara o hash com `scripts/sim-fingerprint.txt`.
-     Roteiro do S0: anda em 8 direções (bate no muro, no cruceiro, nas pedras), corre às vezes, vai até a porta da casa, entra e sai.
+  2. **Jogo (replay):** `scripts/sim.mjs` joga 70 s com sorteio e relógio fixos e compara o hash (jogador + câmera) com `scripts/sim-fingerprint.txt`.
+     Roteiro: S0 (0–60 s) anda em 8 direções (bate no muro, no cruceiro, nas pedras), corre às vezes, vai até a porta da casa, entra e sai.
+     S1 (60–70 s) controle de mentira: stick pela metade (anda devagar), diagonal segurando B (corre), stick quase solto (parado).
      **PR de organização tem de dar igual.** PR que muda a jogabilidade de propósito: `npm run check -- --update-sim` e dizer isso na descrição.
      Cada PR de jogabilidade acrescenta a sua cena ao roteiro. `SIM_TRACE=arquivo node scripts/sim.mjs` grava o rastro quadro a quadro.
-- `npm run smoke` — teste automático (~1 min). Compila, sobe a página na porta **5199**, abre no Chromium sem tela, anda com o teclado
-  e **falha se aparecer qualquer `console.error`** ou erro de página. Capturas e log em `smoke/` (versionados: o PR mostra as capturas).
-  Sem acesso ao download do Playwright: `SMOKE_CHROME=/usr/bin/google-chrome node scripts/smoke.mjs` usa um Chrome já instalado.
+- `npm run smoke` — teste automático (~1 min). Compila, sobe a página na porta **5199**, abre no Chromium sem tela, anda com o teclado,
+  joga com um controle de mentira (`navigator.getGamepads` trocado) e **falha se aparecer qualquer `console.error`** ou erro de página.
+  Capturas e log em `smoke/` (versionados: o PR mostra as capturas). O smoke usa a versão compilada: o que é só do `npm run dev` (tecla T) fica de fora.
+  Sem acesso ao download do Playwright: `SMOKE_CHROME=/usr/bin/google-chrome node scripts/smoke.mjs` usa um Chrome já instalado
+  (no Windows: `$env:SMOKE_CHROME="C:\Program Files\Google\Chrome\Application\chrome.exe"; node scripts/smoke.mjs`).
   Sem placa de vídeo o jogo roda a 3–10 FPS: pega erro de carregar/iniciar/teclas, não bugs de longo prazo.
 - `docs/TESTE-MANUAL.md` — checklist de poucos minutos que o dono roda depois de cada PR (inclui anotar o FPS).
 - FPS real só vale na máquina do dono. Nunca tire conclusão de desempenho pelo smoke.
@@ -51,10 +54,10 @@ index.html, main.css      página do jogo → carrega src/game/main.js
 scripts/                  check.mjs (camadas + replay), sim.mjs (replay), smoke.mjs (navegador sem tela), sim-fingerprint.txt
 smoke/                    capturas + log do último npm run smoke
 docs/                     DESIGN (direção do jogo), ORIGEM (de onde veio cada arquivo), COMO-FUNCIONA (leigo), TESTE-MANUAL (checklist)
-src/engine/               genérico (copiado do survivor; novo: world/ground.js)
+src/engine/               genérico (copiado do survivor; novos: world/ground.js, input/gamepad.js)
   core/                   loop.js (laço, dt ≤ 0,05), events.js (avisos), memo.js (cache com limite)
   render/                 style.js (paleta, materiais, vento), light.js, entity-shadows.js (sombras falsas), follow.js (FPS)
-  input/                  contract.js (contrato de input), keyboard.js (teclado+mouse)
+  input/                  contract.js (contrato de input), keyboard.js (teclado+mouse), gamepad.js (controle de videogame, vibração)
   audio/engine.js         Web Audio: barramentos, primitivas, som posicional
   world/                  collision.js (grade de colisão), pathing.js (desvio, A*), noise.js, ground.js (chão/água que o jogo informa)
 src/shared/               peças prontas (copiadas do survivor)
@@ -65,9 +68,10 @@ src/shared/               peças prontas (copiadas do survivor)
   fx/                     effects.js, gore.js
   audio/                  sfx.js (efeitos soltos)
 src/game/                 este jogo
-  main.js                 liga tudo: renderer, luz, arena, câmera, teclado, laço; Wire() conecta motor ↔ peças ↔ sons
+  main.js                 liga tudo: renderer, luz, arena, câmera, teclado, controle, laço; Wire() conecta motor ↔ peças ↔ sons;
+                          Impact() = tremor + vibração; Note() = aviso curto no alto da tela
   game.js                 estado e regras (sem desenhar: o replay roda isto sem navegador)
-  camera.js               câmera de cima em 3/4, fixa, seguindo o jogador
+  camera.js               câmera de cima em 3/4, fixa: segue o jogador olhando ~1,5 m à frente (antecipação); tremor (shake)
   config/balance.js       TODOS os números ajustáveis, comentados em português
   world/arena.js          arena de teste (S0): chão, muro, cruceiro, hórreo, carvalhos, pedras e uma casa
   world/place-house.js    põe uma casa do survivor no mapa (trecho do gerador do survivor)
@@ -77,14 +81,17 @@ src/game/                 este jogo
 - `SetGround(fn, água)` (`engine/world/ground.js`): o jogo diz a altura do chão e da água. Movimento e sangue perguntam ali.
 - `SetDeepTest(TooDeep)`: água funda bloqueia. `SetCameraSlope(s)`: inclinação da câmera para o recorte do telhado.
 - Avisos (`engine/core/events.js`): as casas emitem `door-open`, `door-close`; o jogo toca o som.
+  `impact` ({ kind: `heavy` | `critical` | `hitTaken` }) → `Impact()` em `main.js`: tremor de tela + vibração (`BALANCE.juice`).
+  No S1 só a tecla T / botão Y (só no `npm run dev`) emitem; a partir do S3 os golpes emitem.
 - Peças de `shared` recebem os números como parâmetro: `UpdatePlayerMovement(p, dt, colliders, BALANCE.move)`.
 
 ## Contrato de input (proteger)
 Copiado do survivor. **Só ganha coisas, nunca muda** (para o co-op pelo celular funcionar depois).
 - `game.setInput(id, { mx, mz, ax, az, run, fire })` — mover (-1..1), mirar (-1..1), correr 0/1, `fire` só no mouse.
-- `game.act(id, ação)` — no S0 nenhuma ação faz efeito. Planejadas (DESIGN 3.7): `light`, `heavy`, `roll`, `parry`, `lock`, `heal`
+- `game.act(id, ação)` — no S1 nenhuma ação faz efeito. Planejadas (DESIGN 3.7): `light`, `heavy`, `roll`, `parry`, `lock`, `heal`
   (`use` e `swap` já existem). Bloquear (`guard`) é de segurar: entra como campo novo no `setInput`.
-- Jogador do teclado tem id `'local'`.
+- Teclado e controle mexem o mesmo jogador, id `'local'`. O controle manda o mesmo contrato (`engine/input/gamepad.js`);
+  os botões ficam em `BALANCE.pad` (`hold` = segurar → campo do `setInput`; `press` = apertar → `game.act`). Já mapeados com as ações do DESIGN 3.7.
 
 ## Decisões tomadas (não reabra sem perguntar ao dono)
 - Repositório próprio; peças copiadas do survivor (origem `e4314ee`). Conceito A (O Camiño das Ánimas), moeda cera.
@@ -118,6 +125,14 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
 ## Fatos que não são óbvios no código
 - O visual do jogador é o do **Samurai** do survivor (`BALANCE.player.look`), provisório até o peregrino.
 - A tecla **Shift** corre e o **Espaço** ainda chama `jump` (o survivor pula; aqui não faz nada). No S2 o Espaço vira rolar.
+- Controle: **segurar B** corre. No S2, tocar B rola (segurar continua correndo).
+- O navegador só mostra o controle depois que alguém **aperta um botão** nele (não basta plugar). Aí aparece "Controle conectado".
+  E só em página segura (https ou localhost: o Codespaces já é https); a prévia embutida do VS Code pode bloquear. Usar uma aba normal.
+- O controle é lido a cada quadro (`pad.poll()`, antes de `game.update`). Parado (stick na zona morta, nenhum botão de segurar)
+  ele não manda nada, para não apagar o teclado; ao soltar, manda "parado" uma vez.
+- Vibração: Chrome e Edge vibram; Firefox não (o jogo segue sem erro).
+- **T** (teclado) e **Y** (controle) testam o tremor de um golpe pesado, **só no `npm run dev`**. Saem quando os golpes chegarem (S3).
+- `npm run check` roda no Windows também (o `sim.mjs` usa `pathToFileURL`).
 - Com o mouse apertado o jogador "mira" (anda devagar virado para o mouse): herança do survivor; sai quando o ataque do souls chegar.
 - Casas: a porta fica na frente (+z, virada para a câmera) quando `ry = 0`. Na arena, a casa `stone2` está em (-8, -8) e a porta em (-8, -4,6).
 - O replay só fixa o sorteio feito por código de `src/` (o Vite e o Three.js também sorteiam).
@@ -129,3 +144,7 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
   `docs/TESTE-MANUAL.md`, `npm run check` (camadas + replay) e `npm run smoke`. Arena plana de 40 × 40 m com muro, cruceiro, hórreo, carvalhos,
   pedras e uma casa de 2 andares (antecipada do S1, para provar que a cópia das casas funciona). Jogador anda no teclado; câmera nova básica.
 - **fase1-design** — `docs/DESIGN.md`: conceito A (O Camiño das Ánimas), números, área da demo, inimigos, plano de PRs. Só documento.
+- **s1-camera-controle (S1)** — controle de videogame (`engine/input/gamepad.js`: stick com zona morta, segurar B corre, botões do DESIGN 3.7
+  já mapeados, vibração, aviso de conectado). Câmera olha ~1,5 m à frente (compensando o atraso da suavidade) e ganha tremor.
+  `BALANCE.camera` (lead…), `BALANCE.juice`, `BALANCE.pad`. Replay: +10 s com controle de mentira e a câmera no hash. Smoke: controle de mentira.
+  `sim.mjs` passou a rodar no Windows.

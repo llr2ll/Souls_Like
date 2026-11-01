@@ -6,6 +6,7 @@ import { CreateEntityShadows } from '../engine/render/entity-shadows'
 import { Fps } from '../engine/render/follow'
 import { wind } from '../engine/render/style'
 import { BindKeyboard } from '../engine/input/keyboard'
+import { BindGamepad } from '../engine/input/gamepad'
 import { SetDeepTest } from '../engine/world/collision'
 import { SetGround, TooDeep } from '../engine/world/ground'
 import { SetEars } from '../engine/audio/engine'
@@ -25,6 +26,23 @@ function Wire(camera) {
   events.on('door-close', (d) => sfx('doorclose', d))
 }
 
+// impacto (golpe, aparo, golpe recebido): tremor de tela e vibração do controle. Números em balance.js · juice
+function Impact(kind, camera, pad) {
+  const S = BALANCE.juice.shake, R = BALANCE.juice.rumble, r = R[kind]
+  camera.shake((S[kind] || 0) * S.scale, S.time)
+  if (r && R.scale > 0) pad.rumble(Math.min(1, r[0] * R.scale), Math.min(1, r[1] * R.scale), r[2])
+}
+
+// aviso curto no alto da tela (ex.: "Controle conectado")
+let noteTimer
+function Note(text) {
+  const el = document.getElementById('note')
+  el.textContent = text
+  el.classList.add('on')
+  clearTimeout(noteTimer)
+  noteTimer = setTimeout(() => el.classList.remove('on'), 3500)
+}
+
 export async function LoadGame() {
   const target = document.getElementById('render-target')
   const renderer = new THREE.WebGLRenderer({ antialias: true })
@@ -40,9 +58,24 @@ export async function LoadGame() {
   BuildArena(scene, BALANCE.arena.size)
 
   const game = CreateGame(scene)
-  game.addPlayer('local', 'Peregrino') // S0: sem menu, o jogador do teclado já entra
-  BindKeyboard({ players: game.players, setInput: game.setInput, act: game.act })
-  if (import.meta.env.DEV) window.__game = game // só no npm run dev: para testes automáticos e depuração
+  game.addPlayer('local', 'Peregrino') // sem menu: teclado e controle mexem o mesmo jogador
+  const DEV = import.meta.env.DEV
+  // só no npm run dev: T (teclado) e Y (controle) testam o tremor de um golpe pesado, até os golpes chegarem (S3)
+  const act = (id, a) => (DEV && a === 'tremor' ? events.emit('impact', { kind: 'heavy' }) : game.act(id, a))
+  const input = { players: game.players, setInput: game.setInput, act }
+  BindKeyboard(input, DEV ? { t: 'tremor' } : {})
+  const help = document.getElementById('help')
+  const HELP = {
+    keys: help.textContent + (DEV ? ' · T testa o tremor' : ''),
+    pad: 'Controle: stick esquerdo anda · segure B correr' + (DEV ? ' · Y testa o tremor' : ''),
+  }
+  help.textContent = HELP.keys
+  const pad = BindGamepad(input, { ...BALANCE.pad, press: { ...BALANCE.pad.press, ...(DEV && { Y: 'tremor' }) } }, (name) => {
+    help.textContent = name ? HELP.pad : HELP.keys
+    Note(name ? `Controle conectado: ${name}` : 'Controle desconectado')
+  })
+  events.on('impact', (d) => Impact(d.kind, camera, pad))
+  if (DEV) window.__game = game // só no npm run dev: para testes automáticos e depuração
 
   addEventListener('resize', () => {
     camera.resize(target.offsetWidth / target.offsetHeight)
@@ -50,6 +83,7 @@ export async function LoadGame() {
   })
 
   function draw(dt) {
+    pad.poll() // o controle não avisa sozinho: lê a cada quadro, antes do jogo andar
     game.update(dt)
     wind.value += dt // vento: só um número; o balanço das folhas acontece na placa de vídeo
     const list = [...game.players.values()]

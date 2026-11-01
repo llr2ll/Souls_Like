@@ -1,14 +1,16 @@
-// Replay determinístico: 60 s de jogo com o jogador fazendo sempre os mesmos movimentos,
+// Replay determinístico: 70 s de jogo com o jogador fazendo sempre os mesmos movimentos,
 // com o sorteio (Math.random) e o relógio fixos. Roda sem navegador e sem desenhar (via Vite).
-// Devolve um resumo (hash) do estado final. Mesmo código de jogo = mesmo hash. Usado pelo npm run check (scripts/sim-fingerprint.txt).
-// Roteiro (S0): anda em várias direções (batendo no muro, no cruceiro e nas pedras), corre às vezes,
-// vai até a porta da casa, entra e sai. Cada PR que cria jogabilidade acrescenta a sua cena ao roteiro.
+// Devolve um resumo (hash) do estado final (jogador e câmera). Mesmo código de jogo = mesmo hash. Usado pelo npm run check (scripts/sim-fingerprint.txt).
+// Roteiro: S0 (0–60 s) anda em várias direções (batendo no muro, no cruceiro e nas pedras), corre às vezes,
+// vai até a porta da casa, entra e sai. S1 (60–70 s) joga com um controle de mentira: stick inclinado pela metade (anda devagar),
+// stick todo na diagonal segurando B (corre), stick quase solto (fica parado). A câmera acompanha o tempo todo (antecipação).
+// Cada PR que cria jogabilidade acrescenta a sua cena ao roteiro.
 // Rode sempre em processo novo (node scripts/sim.mjs): o Three.js e o Vite guardam estado entre rodadas.
 // SIM_TRACE=arquivo grava um rastro quadro a quadro (para achar onde dois replays se separam).
 // (Mecanismo copiado do survivor e4314ee; o roteiro é deste jogo.)
 import { createHash } from 'node:crypto'
 
-export async function SimFingerprint(vite, frames = 1800) {
+export async function SimFingerprint(vite, frames = 2100) {
   // o motor de áudio registra teclas ao carregar; fora do navegador isso não existe
   globalThis.addEventListener ??= () => {}
   // sorteio e relógio fixos
@@ -33,14 +35,19 @@ export async function SimFingerprint(vite, frames = 1800) {
     const reg = await load('/src/shared/worldgen/buildings-registry.js')
     const { BuildArena } = await load('/src/game/world/arena.js')
     const { CreateGame } = await load('/src/game/game.js')
+    const { CreateCamera } = await load('/src/game/camera.js')
+    const { ReadPad, PAD } = await load('/src/engine/input/gamepad.js')
     const { BALANCE } = await load('/src/game/config/balance.js')
 
     const scene = new THREE.Scene()
     SetGround(() => 0); SetDeepTest(TooDeep)
     BuildArena(scene, BALANCE.arena.size)
     const game = CreateGame(scene)
+    const camera = CreateCamera(16 / 9, BALANCE.camera)
     game.addPlayer('local', 'Peregrino')
     const p = game.players.get('local')
+    // controle de mentira: sticks e botões no formato do navegador
+    const fakePad = (x, y, buttons = []) => ({ axes: [x, y, 0, 0], buttons: Object.values(PAD).map((i) => ({ value: buttons.some((b) => PAD[b] === i) ? 1 : 0 })) })
     const door = reg.DoorsNear(-8, -8, 12)[0]
     const outside = door && { x: door.x + door.ox * 1.6, z: door.z + door.oz * 1.6 }
     const inside = door && { x: door.x - door.ox * 2.5, z: door.z - door.oz * 2.5 }
@@ -52,21 +59,30 @@ export async function SimFingerprint(vite, frames = 1800) {
     for (let f = 0; f < frames; f++) {
       now += dt * 1000
       let mx, mz, run = 0
-      if (f < 800) { [mx, mz] = DIRS[Math.floor(f / 70) % DIRS.length]; run = f % 280 < 110 ? 1 : 0 }
-      else if (f < 1150 && door) [mx, mz] = toward(outside)
-      else if (f < 1450 && door) [mx, mz] = toward(inside)
-      else if (door) [mx, mz] = toward(outside)
-      else { mx = 0; mz = 0 }
-      game.setInput('local', { mx, mz, ax: 0, az: 0, run, fire: 0 })
+      if (f >= 1800) {
+        // S1: controle (o mesmo caminho do jogo: ReadPad → setInput)
+        const pad = f < 1890 ? fakePad(0.6, 0) : f < 1980 ? fakePad(0.7, 0.7, ['B']) : f < 2070 ? fakePad(0.15, -0.1) : fakePad(0, 0)
+        game.setInput('local', ReadPad(pad, BALANCE.pad).msg)
+      } else {
+        if (f < 800) { [mx, mz] = DIRS[Math.floor(f / 70) % DIRS.length]; run = f % 280 < 110 ? 1 : 0 }
+        else if (f < 1150 && door) [mx, mz] = toward(outside)
+        else if (f < 1450 && door) [mx, mz] = toward(inside)
+        else if (door) [mx, mz] = toward(outside)
+        else { mx = 0; mz = 0 }
+        game.setInput('local', { mx, mz, ax: 0, az: 0, run, fire: 0 })
+      }
       game.update(dt)
       reg.UpdateDoors(dt, [...game.players.values()], [])
-      if (trace) trace.push(`${f} r${calls} ${p.x.toFixed(4)},${p.z.toFixed(4)},${p.gy.toFixed(3)},${p.lv},${p.stamina.toFixed(2)}`)
+      camera.update(dt, p)
+      const c = camera.cam.position
+      if (trace) trace.push(`${f} r${calls} ${p.x.toFixed(4)},${p.z.toFixed(4)},${p.gy.toFixed(3)},${p.lv},${p.stamina.toFixed(2)} cam ${c.x.toFixed(4)},${c.z.toFixed(4)}`)
     }
     if (trace) (await import('node:fs')).writeFileSync(process.env.SIM_TRACE, trace.join('\n'))
     const r = (v) => (typeof v === 'number' ? Math.round(v * 1e6) / 1e6 : v)
     const state = {
       players: [...game.players.values()].map((q) => [q.id, r(q.x), r(q.z), r(q.gy), q.lv, r(q.stamina), r(q.facing), q.tired]),
       door: door ? [r(door.x), r(door.z)] : null,
+      camera: [r(camera.cam.position.x), r(camera.cam.position.y), r(camera.cam.position.z)],
     }
     const [, x, z, , lv, st] = state.players[0]
     return { hash: createHash('sha256').update(JSON.stringify(state)).digest('hex'), summary: `jogador em (${x.toFixed(2)}, ${z.toFixed(2)}) · andar ${lv} · fôlego ${Math.round(st)}${door ? '' : ' · casa sem porta?'}` }
@@ -78,7 +94,7 @@ export async function SimFingerprint(vite, frames = 1800) {
 }
 
 // rodar: node scripts/sim.mjs (--json = só o resultado, para o check)
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url === (await import('node:url')).pathToFileURL(process.argv[1]).href) { // pathToFileURL: funciona no Windows também
   const { createServer } = await import('vite')
   const path = await import('node:path')
   const vite = await createServer({ root: path.resolve(import.meta.dirname, '..'), logLevel: 'error', server: { middlewareMode: true, hmr: false }, appType: 'custom', optimizeDeps: { noDiscovery: true } })

@@ -18,6 +18,14 @@ Cada PR acrescenta os itens dele aqui.
 | 6 | **Escada**: dentro da casa, ache a escada no fundo e suba | Ele sobe para o andar de cima e o recorte mostra o andar de cima | ☐ |
 | 7 | **Atrás da casa**: dê a volta e fique atrás dela | A parte da casa que tapava você fica baixinha (você continua visível) | ☐ |
 | 8 | **Som**: aperte M | Liga/desliga o som (a porta faz barulho ao abrir e fechar) | ☐ |
+| 9 | **Câmera olha à frente** (S1): ande reto para um lado por uns segundos, depois pare | Andando, o peregrino fica um pouco atrás do meio da tela: aparece mais chão do lado para onde ele vai. Parado, a câmera volta devagar a centralizar, sem tranco | ☐ |
+| 10 | **Tremor** (S1): aperte T | A tela dá um tranco curto e fraco e volta sozinha (é o tremor de um golpe pesado; os golpes chegam no S3) | ☐ |
+| 11 | **Conectar o controle** (S1): plugue (USB ou Bluetooth) e aperte qualquer botão. Use o jogo numa aba normal do Chrome ou Edge (a prévia dentro do VS Code pode não enxergar o controle) | Aviso "Controle conectado: …" no alto da tela. A ajuda no canto de baixo muda para os botões do controle | ☐ |
+| 12 | **Stick esquerdo**: incline pouco, depois tudo, depois solte | Pouco: anda devagar. Tudo: anda normal. Solto: para (não fica andando sozinho) | ☐ |
+| 13 | **Segure B** andando | Corre, igual ao Shift (correndo muito tempo, cansa) | ☐ |
+| 14 | **Aperte Y** | Mesmo tranco do item 10 e o controle vibra rapidinho (no Firefox não vibra) | ☐ |
+| 15 | **Outros botões** (A, X, RB, RT, LT, R3, direcional) | Nada acontece ainda, e o jogo não trava | ☐ |
+| 16 | **Desligar o controle** (ou tirar o cabo) | Aviso "Controle desconectado". O teclado continua funcionando | ☐ |
 
 ## Anotar o FPS
 O FPS aparece em verde no canto de cima, à direita. Anote depois de 1 minuto andando pela arena.

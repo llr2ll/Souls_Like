@@ -1,7 +1,7 @@
 # Como o jogo funciona (sem código)
 
 ## A ideia em uma frase
-O jogo roda inteiro no navegador do PC. Você joga com teclado e mouse (e, a partir do S1, com controle de videogame).
+O jogo roda inteiro no navegador do PC. Você joga com teclado e mouse ou com controle de videogame (Xbox ou PlayStation, USB ou Bluetooth).
 Não tem servidor nem celular: isso só volta no co-op, depois da demo.
 
 ## De onde vieram as peças
@@ -30,10 +30,21 @@ O comando `npm run check` confere essa regra sozinho.
 | `smoke/` | Fotos e anotações do último teste automático | As capturas no PR |
 | `docs/` | Documentos para você | Este arquivo |
 
+## Controle de videogame
+- Plugue o controle e **aperte qualquer botão**: o navegador só "enxerga" o controle depois disso. Aparece "Controle conectado" no alto da tela.
+- O controle e o teclado mexem o mesmo peregrino. Dá para trocar de um para o outro a qualquer hora.
+- Os botões já seguem o plano (DESIGN 3.7), mas cada um só ganha efeito no PR dele (atacar no S3, travar no S4…).
+- Vibração: funciona no Chrome e no Edge. No Firefox o controle funciona, mas não vibra.
+
 ## Como ajustar o jogo
 Todos os números ficam num arquivo só: **`src/game/config/balance.js`**.
 Cada linha tem um comentário dizendo o que muda. Mude um número, salve, e o jogo recarrega sozinho (com `npm run dev` rodando).
-Exemplo: quer a câmera mais longe? Aumente `height` e `back` em `camera`.
+Exemplos:
+- Quer a câmera mais longe? Aumente `height` e `back` em `camera`.
+- A câmera olhando à frente incomoda? Diminua `lead` em `camera` (0 desliga).
+- Tremor forte demais? Diminua `scale` em `juice.shake` (0 desliga). Vibração: `scale` em `juice.rumble`.
+- O boneco anda sozinho com o controle parado (stick gasto)? Aumente `dead` em `pad`.
+- Trocar um botão do controle: em `pad`, troque o nome do botão (A, B, X, Y, LB, RB, LT, RT, L3, R3, UP, DOWN, LEFT, RIGHT).
 
 ## Como testar
 - Depois de cada PR: siga `docs/TESTE-MANUAL.md` (poucos minutos).
