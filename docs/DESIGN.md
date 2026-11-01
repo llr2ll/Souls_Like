@@ -396,8 +396,8 @@ Um de cada vez, com o seu OK. **Sensação antes de conteúdo:** S0–S4 só no 
 
 | PR | Conteúdo | Como testar no controle | O dono deve sentir |
 |---|---|---|---|
-| S0 | Base: cópia das peças, `package.json`, `CLAUDE.md`, `docs/ORIGEM.md`, `npm run check` e `npm run smoke`. Arena plana de 40 × 40 m | `npm install` e `npm run dev`. WASD anda | "Abre e anda" |
-| S1 | Câmera nova + controle de videogame + uma casa na arena | Plugar o controle. Stick esquerdo anda. Entrar na casa: o telhado some | "O controle responde, a câmera ajuda" |
+| S0 | Base: cópia das peças, `package.json`, `CLAUDE.md`, `docs/ORIGEM.md`, `npm run check` e `npm run smoke`. Arena plana de 40 × 40 m com uma casa (antecipada do S1, para provar a cópia das casas) e câmera nova básica | `npm install` e `npm run dev`. WASD anda. Entrar na casa: o telhado some | "Abre e anda" |
+| S1 | Câmera completa (antecipação para onde anda, tremor no impacto) + controle de videogame | Plugar o controle. Stick esquerdo anda; a câmera olha um pouco à frente | "O controle responde, a câmera ajuda" |
 | S2 | Fôlego, correr, rolamento invulnerável | B rola. Segurar B corre. A barra verde desce e volta | Peso e agilidade |
 | S3 | Ataque leve (combo de 3) e pesado, compromisso, buffer, rastro, pausa no impacto. **Boneco de treino parado** para sentir o golpe | RB 3 vezes, RT. Depois de atacar, tentar andar: não dá até o golpe acabar. Rolar logo após o impacto: dá | O golpe pesa |
 | S4 | Travar no alvo + câmera enquadrando (2 bonecos) | R3 trava. Stick direito troca de boneco. Afastar: a câmera abre | Controle no 1 contra 1 |
