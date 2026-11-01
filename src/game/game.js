@@ -22,14 +22,16 @@ const wrap = (a) => { a = (a + Math.PI) % (Math.PI * 2); if (a < 0) a += Math.PI
 const KINDS = { romeiro: CreateRomeiro }
 const PLAYER_R = 0.45
 
-export function CreateGame(scene) {
+// map = o mapa em jogo (BALANCE.maps.*): largada, bonecos, cruceiros. Os inimigos o main.js (ou o replay) põe com spawn
+export function CreateGame(scene, map = BALANCE.maps.arena) {
   const players = new Map()
   const PL = BALANCE.player, R = BALANCE.roll, AT = BALANCE.attack, LK = BALANCE.lock, HU = BALANCE.hurt
   const GU = BALANCE.guard, PA = BALANCE.parry, CR = BALANCE.critical
-  const dummies = BALANCE.dummies.map((d) => CreateDummy(scene, d.x, d.z))
+  const START = map.start
+  const dummies = (map.dummies || []).map((d) => CreateDummy(scene, d.x, d.z))
   const enemies = []
   const targets = [...dummies] // o que pode levar golpe: bonecos e inimigos
-  const progress = CreateProgress(scene, enemies)
+  const progress = CreateProgress(scene, enemies, map)
   let stopT = 0 // pausa no impacto: o jogo fica parado enquanto > 0
   let slowT = 0 // aparo certo: tudo fica lento enquanto > 0
   // velocidade no começo do rolamento: ela cai em curva (cosseno) até parar no fim, andando R.distance
@@ -40,7 +42,7 @@ export function CreateGame(scene) {
     const model = CreatePlayerModel(PL.look, { shield: true })
     scene.add(model.root)
     players.set(id, {
-      id, name, model, x: PL.start.x, z: PL.start.z, vx: 0, vz: 0, aimAngle: Math.PI, facing: Math.PI, turn: 0, speed: 0,
+      id, name, model, x: START.x, z: START.z, vx: 0, vz: 0, aimAngle: Math.PI, facing: Math.PI, turn: 0, speed: 0,
       aiming: false, firing: false, jy: 0, vy: 0, gy: 0, y: 0, lv: 0, stamina: PL.stamina, staminaMax: PL.stamina, restT: 0,
       tired: false, running: false, hp: PL.hp, max: PL.hp, dead: false,
       raw: { mx: 0, mz: 0, ax: 0, az: 0, run: 0 }, // o que o teclado/controle mandou
@@ -54,7 +56,7 @@ export function CreateGame(scene) {
       guard: false, parryT: -1, stunT: 0, // escudo erguido agora; aparando há quanto tempo; aberto (guarda quebrada, aparo errado)
       gourd: BALANCE.gourd.sips, gourdMax: BALANCE.gourd.sips, bread: BALANCE.bread.start, // goles e pães
       use: null, useT: -1, healed: false, // bebendo ('drink') ou comendo ('eat'); há quanto tempo; a cura já entrou?
-      cera: 0, home: null, safeX: PL.start.x, safeY: 0, safeZ: PL.start.z, // cera; último cruceiro; último chão firme (a vela fica ali)
+      cera: 0, home: null, safeX: START.x, safeY: 0, safeZ: START.z, // cera; último cruceiro; último chão firme (a vela fica ali)
     })
   }
   // inimigos: o jogo (main.js) põe os da arena; o replay põe na hora da cena dele

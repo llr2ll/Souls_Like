@@ -167,11 +167,12 @@ export async function LoadGame() {
   Wire(camera)
   Light(scene, renderer)
   const shadows = CreateEntityShadows(scene)
-  BuildArena(scene, BALANCE.arena.size)
+  const map = BALANCE.maps.arena
+  BuildArena(scene, map.size)
 
-  const game = CreateGame(scene)
+  const game = CreateGame(scene, map)
   game.addPlayer('local', 'Peregrino') // sem menu: teclado e controle mexem o mesmo jogador
-  for (const e of BALANCE.enemies) game.spawn(e.kind, e.x, e.z, e.ry)
+  for (const e of map.enemies) game.spawn(e.kind, e.x, e.z, e.ry)
   if (game.load(ReadSave())) Note('Continuando de onde parou') // fechou a página e abriu: continua
   const input = { players: game.players, setInput: game.setInput, act: game.act }
   BindKeyboard(input, BALANCE.keys)

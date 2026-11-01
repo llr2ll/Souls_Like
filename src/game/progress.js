@@ -8,8 +8,9 @@ import { BALANCE } from './config/balance'
 // - Pegar a vela (E/A perto dela): a cera volta. Salva.
 // Avisos: 'rest' ({ p, c, first }), 'rest-denied', 'cera' ({ p, n, e }), 'candle' (vela posta), 'candle-pick', 'candle-lost',
 // 'save' (os dados do save: o main.js grava no navegador).
-export function CreateProgress(scene, enemies) {
-  const cruceiros = BALANCE.cruceiros.map((c) => ({ ...c, lit: false, candles: CreateCruceiroCandles(scene, c.x, c.z) }))
+// map = o mapa em jogo (BALANCE.maps.*): de lá vêm os cruceiros e o ponto de largada
+export function CreateProgress(scene, enemies, map) {
+  const cruceiros = map.cruceiros.map((c) => ({ ...c, lit: false, candles: CreateCruceiroCandles(scene, c.x, c.z) }))
   let candle = null // { x, y, z, cera, view }
   const byId = (id) => cruceiros.find((c) => c.id === id)
   const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z)
@@ -57,7 +58,7 @@ export function CreateProgress(scene, enemies) {
   // onde volta: na frente do último cruceiro em que descansou (antes disso, no começo)
   function spawnPoint(p) {
     const c = byId(p.home)
-    return c ? { x: c.x, z: c.z + 1.9, facing: Math.PI } : { x: BALANCE.player.start.x, z: BALANCE.player.start.z, facing: Math.PI }
+    return c ? { x: c.x, z: c.z + 1.9, facing: Math.PI } : { x: map.start.x, z: map.start.z, facing: Math.PI }
   }
   function killed(p, e) {
     if (e.cera) { p.cera += e.cera; events.emit('cera', { p, n: e.cera, e }) }

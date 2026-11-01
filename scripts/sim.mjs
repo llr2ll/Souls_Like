@@ -85,8 +85,8 @@ export async function SimFingerprint(vite, frames = 6100) {
 
     const scene = new THREE.Scene()
     SetGround(() => 0); SetDeepTest(TooDeep)
-    BuildArena(scene, BALANCE.arena.size)
-    const game = CreateGame(scene)
+    BuildArena(scene, BALANCE.maps.arena.size)
+    const game = CreateGame(scene, BALANCE.maps.arena)
     const camera = CreateCamera(16 / 9, BALANCE.camera)
     game.addPlayer('local', 'Peregrino')
     const p = game.players.get('local')

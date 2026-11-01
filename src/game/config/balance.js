@@ -5,7 +5,6 @@ export const BALANCE = {
     hp: 100, // vida (DESIGN 3.1; +6 por ponto de Vigor quando existir progressão)
     stamina: 100, // fôlego (DESIGN 3.1; +4 por ponto de Alento)
     look: 'samurai', // visual provisório (o do survivor que luta de perto); o peregrino chega com as armas do souls
-    start: { x: 0, z: 6 }, // onde o jogador nasce na arena
   },
 
   // Movimento: mesmos campos do survivor (shared/characters/player-movement.js · DEFAULT_MOVE)
@@ -85,12 +84,8 @@ export const BALANCE = {
   // Golpe crítico: golpe leve a até `range` m de quem está de joelhos. Invulnerável durante a animação
   critical: { anim: 'riposte', time: 1.2, hit: [0.42, 0.5], mult: 3, range: 2.0, arc: 70, lunge: 0.3 },
 
-  // Bonecos de treino (S3, S4): onde ficam na arena. Não morrem
-  dummies: [{ x: 0, z: 2 }, { x: 4, z: 0 }],
-
   // Cruceiros (DESIGN 1 e 7): E ou A perto dele = descansar (cura, enche a cabaça, salva e os inimigos voltam).
-  // Morrendo, você volta no último em que descansou (antes do primeiro descanso: no começo)
-  cruceiros: [{ id: 'arena', name: 'Cruceiro da arena', x: 9, z: 3 }],
+  // Morrendo, você volta no último em que descansou (antes do primeiro descanso: no começo). Onde ficam: em cada mapa (maps)
   rest: {
     range: 2.8, // distância para descansar (m, do centro do cruceiro; o pé de pedra tem ~2 m de largura)
     enemyNear: 15, // não dá para descansar com inimigo atrás de você a menos disso (m)
@@ -100,9 +95,6 @@ export const BALANCE = {
     range: 1.6, // distância para pegar (m)
     hum: 30, // o zumbido baixo que guia até a vela se ouve até essa distância (m)
   },
-
-  // Inimigos na arena (S5): tipo, posição e para onde olham (radianos; 0 = para baixo na tela)
-  enemies: [{ kind: 'romeiro', x: -8, z: 13, ry: 0 }],
 
   // Levar golpe (DESIGN 3.3)
   hurt: {
@@ -199,7 +191,15 @@ export const BALANCE = {
     anglePenalty: 4, // ao travar, prefere o alvo para onde ele olha: cada radiano de desvio conta como tantos metros a mais
   },
 
-  arena: {
-    size: 40, // lado da arena de teste (m)
+  // Mapas: o que fica em cada um. start = onde o jogador nasce (antes do primeiro descanso); dummies = bonecos de treino
+  // (não morrem); cruceiros; enemies = inimigos (tipo, posição, para onde olham em radianos: 0 = para baixo na tela)
+  maps: {
+    arena: { // arena de teste (S0–S8)
+      size: 40, // lado (m)
+      start: { x: 0, z: 6 },
+      dummies: [{ x: 0, z: 2 }, { x: 4, z: 0 }],
+      cruceiros: [{ id: 'arena', name: 'Cruceiro da arena', x: 9, z: 3 }],
+      enemies: [{ kind: 'romeiro', x: -8, z: 13, ry: 0 }],
+    },
   },
 }
