@@ -1,0 +1,5 @@
+html, body { height: 100%; margin: 0; background: #15120f; overflow: hidden; font-family: system-ui, sans-serif }
+#root-window, #render-target { height: 100% }
+#fps-element { font-family: monospace; position: fixed; color: #0f0; right: 10px; top: 10px; z-index: 5 }
+#hud { position: fixed; inset: 0; pointer-events: none; color: #fff; text-shadow: 0 1px 3px #000 }
+#help { position: absolute; bottom: 8px; right: 12px; font-size: 12px; opacity: .7 }

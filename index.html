@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>O Camiño das Ánimas</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="main.css" />
+  </head>
+  <body>
+    <div id="fps-element"></div>
+    <div id="root-window"><div id="render-target"></div></div>
+    <div id="hud">
+      <div id="help">Teclado (provisório): WASD andar · Shift correr · M som liga/desliga</div>
+    </div>
+    <script type="module">
+      import { LoadGame } from './src/game/main.js'
+      window.onload = async () => (window.scene = await LoadGame())
+    </script>
+  </body>
+</html>
