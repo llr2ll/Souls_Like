@@ -18,12 +18,16 @@ import { CreateCamera } from './camera'
 import { CreateHud } from './hud'
 import { CreateTrail } from './fx/trail'
 import { CreateLockMark } from './fx/lock-mark'
+import { CreateMusic } from './audio/music'
 import { BuildArena } from './world/arena'
 import { BuildSantaBaia, SantaBaiaGround, WATER_Y } from './world/santa-baia'
 import { BALANCE } from './config/balance'
 
 // qual mapa: o vale da demo; com ?arena no endereço, a arena de teste (S0–S8)
-const MAP = new URLSearchParams(location.search).has('arena') ? 'arena' : 'demo'
+const URL_ARGS = new URLSearchParams(location.search)
+const MAP = URL_ARGS.has('arena') ? 'arena' : 'demo'
+// ?castro: teste do chefe. Começa na frente da névoa do castro (morrendo, volta no ✝ do Castro), com um save só dele, sempre do zero
+const BOSS_TEST = MAP === 'demo' && URL_ARGS.has('castro')
 // monta o cenário do mapa (o chão vem antes: as casas e os inimigos perguntam a altura dele)
 function BuildMap(scene, name) {
   const map = BALANCE.maps[name]
@@ -146,10 +150,10 @@ function Paper(title, text) {
 }
 
 // save no navegador (DESIGN 7), um por mapa. Abrir a página com ?novo apaga e começa do zero. Navegador sem permissão: joga sem salvar
-const SAVE_KEY = MAP === 'demo' ? 'camino-das-animas-save' : `camino-das-animas-save-${MAP}`
+const SAVE_KEY = BOSS_TEST ? 'camino-das-animas-save-castro' : MAP === 'demo' ? 'camino-das-animas-save' : `camino-das-animas-save-${MAP}`
 function ReadSave() {
   try {
-    if (new URLSearchParams(location.search).has('novo')) { localStorage.removeItem(SAVE_KEY); return null }
+    if (URL_ARGS.has('novo') || BOSS_TEST) { localStorage.removeItem(SAVE_KEY); return null }
     return JSON.parse(localStorage.getItem(SAVE_KEY) || 'null')
   } catch { return null }
 }
@@ -185,6 +189,40 @@ function WireProgress(fx) {
   events.on('death', () => { sfx('gameover'); setTimeout(() => death.classList.add('on'), 500) })
   events.on('respawn', () => death.classList.remove('on'))
 }
+// chefe (S11): som de cada aviso e golpe (DESIGN 8: sibilo e chocalho da serpe, sinos da moura), poeira do enroscar,
+// a serpe virando pedra, a música, a barra grande e o "Fim da demo". impact(kind) = tremor + vibração
+function WireBoss(fx, hud, music, impact) {
+  const at = (o) => ({ x: o.x, z: o.z })
+  const WARN = { bite: 'sibilo', tail: 'rattle', squeeze: 'scrape', fuso: 'whir', fio: 'bells', encanto: 'throw', 'encanto-mark': 'bells' }
+  const STRIKE = { bite: 'bite', tail: 'swing', squeeze: 'grab', fuso: 'swing', fio: 'zap', encanto: 'swing' }
+  events.on('boss-warn', ({ e, name, x, z }) => {
+    sfx(WARN[name] || 'growl', x !== undefined ? { x, z } : at(e)) // o brilho do encanto soa onde ela vai voltar
+    if (name === 'encanto') fx.puff(e.x, (e.y || 0) + 1, e.z, 0xe8d39a, 0.9, 0.7) // some numa fumaça dourada
+  })
+  events.on('boss-strike', ({ e, name }) => {
+    sfx(STRIKE[name] || 'swing', { ...at(e), heavy: name === 'tail' || name === 'encanto' })
+    if (name === 'squeeze') sfx('stomp', at(e))
+  })
+  events.on('boss-dust', (d) => fx.puff(d.x, 0.2, d.z, 0xa89a80, 0.6, 0.6))
+  events.on('fog-enter', ({ p }) => { sfx('whir', at(p)); fx.puff(p.x, 1, p.z + 1, 0xe8ecef, 1.2, 1) })
+  events.on('fog-lift', () => Note('A névoa do castro se desfaz'))
+  events.on('boss-start', (e) => { hud.boss(e); music.start() })
+  events.on('boss-phase', (e) => {
+    sfx('crack', at(e))
+    impact('boss')
+    music.phase(2)
+    setTimeout(() => Title('A Moura'), 900) // quando ela sai da pedra
+  })
+  const ending = document.getElementById('ending'), E = BALANCE.castro.ending
+  events.on('boss-end', () => {
+    music.stop(BALANCE.music.end, true)
+    setTimeout(() => hud.boss(null), 2500)
+    setTimeout(() => { ending.classList.add('on'); sfx('revive') }, E.delay * 1000)
+    setTimeout(() => ending.classList.remove('on'), (E.delay + E.time) * 1000)
+  })
+  events.on('death', () => { music.stop(); hud.boss(null) })
+}
+
 // zumbido baixo que guia até a vela da morte: mais frequente perto
 let humT = 0
 function CandleHum(dt, p, candle) {
@@ -213,6 +251,11 @@ export async function LoadGame() {
   game.addPlayer('local', 'Peregrino') // sem menu: teclado e controle mexem o mesmo jogador
   for (const e of map.enemies) game.spawn(e.kind, e.x, e.z, e.ry, { sit: e.sit })
   if (game.load(ReadSave())) Note('Continuando de onde parou') // fechou a página e abriu: continua
+  if (BOSS_TEST) {
+    const p = game.players.get('local'), f = map.fogs.find((o) => o.boss)
+    Object.assign(p, { home: 'castro', x: f.x, z: f.z + 2.2, facing: Math.PI, safeX: f.x, safeZ: f.z + 2.2 })
+    Note('Teste do chefe: E/A atravessa a névoa')
+  }
   const input = { players: game.players, setInput: game.setInput, act: game.act }
   BindKeyboard(input, BALANCE.keys)
   const help = document.getElementById('help')
@@ -235,6 +278,7 @@ export async function LoadGame() {
   events.on('hurt', (d) => Impact(d.strong ? 'hurtStrong' : 'hurt', camera, pad)) // levou golpe
   const hud = CreateHud(BALANCE.hud)
   events.on('respawn', () => hud.reset())
+  WireBoss(fx, hud, CreateMusic(BALANCE.music), (k) => Impact(k, camera, pad))
   const trail = CreateTrail(scene, BALANCE.juice.trail)
   const lockMark = CreateLockMark(scene)
   if (import.meta.env.DEV) window.__game = game // só no npm run dev: para testes automáticos e depuração

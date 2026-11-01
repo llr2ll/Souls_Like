@@ -44,7 +44,7 @@ Para conferir se um arquivo continua igual: `git diff --no-index <survivor>/src/
 | `src/shared/worldgen/names.js` | Saíram `RoadCode` e `Destination` e o import de `worldgen/layout.js` | Dependiam do mapa de estradas. Ficaram as listas de nomes, `NodeName` e `StreetName` |
 | `src/engine/input/keyboard.js` | **Substituído no S2** por um leitor guiado pelo mapa do jogo (`BALANCE.keys`), igual ao do controle. (No S0 só tinha mudado a tecla H: `getElementById('room')?.`) | O do survivor mirava com o mouse e tinha teclas fixas (Shift corre, Espaço pula). Aqui Espaço rola/corre, Shift é modificador e o clique ataca |
 | `src/shared/characters/player-movement.js` (S2) | Fôlego: a recuperação espera `tune.staminaDelay` sem gastar (`p.restT`); o máximo é `p.staminaMax` (era 100 fixo) | DESIGN 3.1: 35/s depois de 0,5 s sem gastar; Alento aumenta o máximo. Sem `staminaDelay` (survivor) fica igual ao original |
-| `src/shared/audio/sfx.js` (S8, S10) | Receitas novas: `candle` (zumbido da vela da morte), `giggle` (risadinha do trasno), `whir` (zunido da funda), `howl` (uivo), `stone` (pedra batendo). Nada mudou nas outras | DESIGN 8: cada golpe inimigo com som próprio |
+| `src/shared/audio/sfx.js` (S8, S10, S11) | Receitas novas: `candle` (zumbido da vela da morte), `giggle` (risadinha do trasno), `whir` (zunido da funda), `howl` (uivo), `stone` (pedra batendo); S11: `sibilo` e `rattle` (sibilo e chocalho da serpe), `scrape` (corpo arrastando), `bells` (sinos da moura), `crack` (pedra rachando). Nada mudou nas outras | DESIGN 8: cada golpe inimigo com som próprio |
 | `src/shared/creatures/zombie-model.js` (S10) | Devolve `head` (o pescoço, para pendurar gorro / trocar a cabeça) e `skin(mat)` (todas as partes num material só; o piscar volta para ele) | Trasno de gorro; Lobishome peludo com cabeça de lobo |
 | `src/shared/characters/player.js` (S10) | Cai também com `p.down` (golpe forte), mais rápido, e levanta | DESIGN 3.3: golpe forte derruba |
 | `src/engine/input/contract.js` (S6) | Ganhou o campo `guard` (0/1, escudo erguido). Nada mudou nos que existiam | Bloquear é de segurar (DESIGN 3.7). O contrato só ganha coisas |
@@ -66,7 +66,7 @@ Para conferir se um arquivo continua igual: `git diff --no-index <survivor>/src/
 | `src/game/world/place-house.js` | `src/shared/worldgen/generator.js` do survivor, trecho "casas" (malha + recortes + porta + colisores + registro) | Vira uma função para uma casa só. A altura vem de `GroundAt` (em vez de `Height` do terreno). Sem as sombras falsas do chunk |
 | `scripts/check.mjs` | `scripts/check.mjs` do survivor | Camadas `game → shared → engine` (em vez de `games/<jogo>`); sem a verificação do mundo infinito |
 | `scripts/sim.mjs` | `scripts/sim.mjs` do survivor | Mesmo mecanismo (sorteio e relógio fixos); roteiro deste jogo; a câmera entra no hash (S1). O teste "rodei direto?" usa `pathToFileURL` (S1): o do survivor só funcionava no Linux |
-| `scripts/smoke.mjs` | `scripts/smoke.mjs` do survivor | Sem relay, celular e menu; `SMOKE_CHROME` para usar um Chrome já instalado; controle de mentira (S1) |
+| `scripts/smoke.mjs` | `scripts/smoke.mjs` do survivor | Sem relay, celular e menu; `SMOKE_CHROME` para usar um Chrome já instalado; controle de mentira (S1); vale (S9) e chefe por `?castro` (S11) |
 | `src/game/camera.js` (tremor, S1) | `src/engine/render/splitscreen.js` do survivor, trecho do tremor (`shake`) | Uma câmera só, sem raio de alcance (tela única); limite em `BALANCE.camera.shakeMax` |
 
 ## Ainda no survivor, para quando precisar

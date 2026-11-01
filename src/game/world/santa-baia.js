@@ -272,24 +272,39 @@ function Lever(scene, l) {
     update(dt) { arm.rotation.x += (target - arm.rotation.x) * Math.min(1, dt * 6) },
   }
 }
-// névoa: parede de fumaça clara que ondula (passa só quando o chefe chegar, S11). f = { x, z, w }
+// névoa: parede de fumaça clara que ondula (E/A atravessa para a arena do chefe; vencido, ela se desfaz). f = { x, z, w, behind? }
+// behind = a névoa que fecha a entrada da arena atrás de você enquanto o chefe está acordado (close(true/false))
 const fogMat = new THREE.MeshBasicMaterial({ color: 0xe8ecef, transparent: true, opacity: 0.3, depthWrite: false, side: THREE.DoubleSide })
-function Fog(scene, f) {
+function FogWall(scene, x, z, w) {
   const g = new THREE.Group()
-  g.position.set(f.x, SantaBaiaGround(f.x, f.z), f.z)
+  g.position.set(x, SantaBaiaGround(x, z), z)
   const sheets = [0, 1, 2, 3].map((i) => {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(f.w + 1.5 - i * 0.4, 4.5 - i * 0.6), fogMat)
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w + 1.5 - i * 0.4, 4.5 - i * 0.6), fogMat)
     m.position.set(0, 2.2 - i * 0.3, (i - 1.5) * 0.3)
     g.add(m)
     return m
   })
   scene.add(g)
-  const col = { x: f.x, z: f.z, hw: f.w / 2 + 0.3, hd: 0.5 }
+  const col = { x, z, hw: w / 2 + 0.3, hd: 0.5 }
   AddColliders([col])
-  let t = 0
+  return { g, sheets, col }
+}
+function Fog(scene, f) {
+  const main = FogWall(scene, f.x, f.z, f.w)
+  const back = f.behind && FogWall(scene, f.behind.x, f.behind.z, f.behind.w)
+  if (back) { back.col.off = true; back.g.visible = false; back.g.scale.y = 0.55 } // mais baixa: não tapa quem luta perto dela
+  let t = 0, gone = false
   return {
-    ...f, col,
-    update(dt) { t += dt; sheets.forEach((s, i) => { s.position.x = Math.sin(t * 0.7 + i * 2) * 0.4; s.scale.y = 1 + Math.sin(t * 0.9 + i) * 0.08 }); fogMat.opacity = 0.28 + 0.06 * Math.sin(t * 1.3) },
+    ...f, col: main.col,
+    // vencido o chefe: a névoa se desfaz e deixa passar
+    lift(instant) { main.col.off = true; gone = true; if (instant) main.g.visible = false },
+    close(on) { if (!back || back.g.visible === on) return; back.col.off = !on; back.g.visible = on },
+    update(dt) {
+      if (gone) { main.g.scale.y = Math.max(0, main.g.scale.y - dt * 0.6); if (main.g.scale.y <= 0) main.g.visible = false }
+      t += dt
+      for (const w of [main, back]) if (w && w.g.visible) w.sheets.forEach((s, i) => { s.position.x = Math.sin(t * 0.7 + i * 2) * 0.4; s.scale.y = 1 + Math.sin(t * 0.9 + i) * 0.08 })
+      fogMat.opacity = 0.28 + 0.06 * Math.sin(t * 1.3)
+    },
   }
 }
 // fogueira: chama que tremula (sem luz de verdade: barato)

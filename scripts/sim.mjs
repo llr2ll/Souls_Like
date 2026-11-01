@@ -24,6 +24,10 @@
 // S9 (+42 s, outro mapa): monta o Val de Santa Baia no mesmo processo (limpa colisões e casas da arena). Lê a inscrição da ponte,
 // tenta entrar no rio (a parte funda barra), atravessa a ponte e descansa no ✝ da Ponte, pega o pão da fonte, empurra o portão
 // do mosteiro por fora (fechado), puxa a alavanca por dentro, desce o corredor até o prado do cruceiro, tenta passar a névoa.
+// S10 (+50 s no vale): trasno rouba e foge, fondeiro (escudo, corpo, rolar), Lobishome (derruba, uiva, morre, não volta), atalhos 1 e 3, anaco.
+// S11 (+63 s no vale): o chefe do castro. Atravessa a névoa; o robô rola no fim de cada aviso e pune; apara o bote até a postura
+// quebrar e dá o crítico na cabeça; a serpe vira pedra e a moura sai; morre na fase 2 (o chefe volta a dormir, fase 1); entra
+// de novo e vence; a névoa some; sai andando; salva e carrega.
 // Cada PR que cria jogabilidade acrescenta a sua cena ao roteiro.
 // Rode sempre em processo novo (node scripts/sim.mjs): o Three.js e o Vite guardam estado entre rodadas.
 // SIM_TRACE=arquivo grava um rastro quadro a quadro (para achar onde dois replays se separam).
@@ -337,10 +341,73 @@ export async function SimFingerprint(vite, frames = 6100) {
       if (trace) trace.push(`w${f} ${q.x.toFixed(3)},${q.z.toFixed(3)},${q.gy.toFixed(3)} lv${q.lv} hp ${q.hp} cera ${q.cera}${q.down ? ' DOWN' : ''}${q.safe ? ' safe' : ''} ${g2.enemies.filter((e) => !e.dead).map((e) => `${e.kind} ${e.x.toFixed(1)},${e.z.toFixed(1)} ${e.state}${e.atk ? ':' + e.atk.name + ':' + e.atk.phase : ''} hp ${e.hp}`).join(' | ')}`)
     }
 
+    // ---- S11 (no vale): o chefe do castro. Atravessa a névoa, o robô desvia (rola no fim de cada aviso) e pune; apara o bote
+    // (a postura enche: a cabeça cai) e dá o crítico; a serpe vira pedra e a moura sai; morre (o chefe volta a dormir);
+    // entra de novo e vence: a névoa some, sai andando, salva e carrega ----
+    const s11 = { enter: 0, warns: {}, hurt: 0, parry: 0, broken: 0, critical: 0, phase: 0, end: 0, lift: 0, reset: null, out: null, save: null }
+    events.on('fog-enter', () => s11.enter++)
+    events.on('boss-warn', ({ name }) => { s11.warns[name] = (s11.warns[name] || 0) + 1 })
+    events.on('hurt', ({ by }) => { if (by && by.kind === 'castro') s11.hurt++ })
+    events.on('parry', ({ by }) => { if (by && by.kind === 'castro') s11.parry++ })
+    events.on('enemy-broken', (e) => { if (e.kind === 'castro') s11.broken++ })
+    events.on('hit', ({ kind, target }) => { if (kind === 'critical' && target.kind === 'castro') s11.critical++ })
+    events.on('boss-phase', () => s11.phase++)
+    events.on('boss-end', () => s11.end++)
+    events.on('fog-lift', () => s11.lift++)
+    const bo = g2.spawn('castro', 32, -71, 0), bot3 = { warned: null, p2: 0, dead: 0, again: 0 }
+    const atFog = () => { Object.assign(q, { x: 32, z: -53.6, vx: 0, vz: 0, lv: 0, gy: SantaBaiaGround(32, -53.6), jy: 0, vy: 0, facing: Math.PI, lock: null }); q.hp = q.max }
+    // robô: rola no fim de cada aviso (bote: para o lado; rabada, aperto e encanto: para longe), apara o bote (parry = true);
+    // na janela (cabeça no chão, recuperando, de joelhos) chega perto e bate
+    function bossBot(f, parry) {
+      const A = bo.atk
+      if (A && bot3.warned !== A && parry && A.name === 'bite' && A.phase === 'strike') { bot3.warned = A; return [[0, 0], 'parry'] }
+      if (A && A.phase === 'warn' && bot3.warned !== A && !(parry && A.name === 'bite')) {
+        const d = A.def, left = (A.name === 'encanto' ? d.vanish + d.mark : d.warn) - A.t
+        if (left >= 0.12) return [[0, 0], null]
+        bot3.warned = A
+        const a = Math.atan2(q.x - bo.x, q.z - bo.z), dir = A.name === 'bite' || A.name === 'fio' || A.name === 'fuso' ? a + Math.PI / 2 : a
+        return [[Math.sin(dir), Math.cos(dir)], 'roll']
+      }
+      if (A && A.phase !== 'recover') return [[0, 0], null]
+      const pt = bo.hitPoint(q.x, q.z), l = Math.hypot(pt.x - q.x, pt.z - q.z)
+      if ((bo.grounded || bo.state === 'broken' || A) && l - pt.r > 1.2) return [[(pt.x - q.x) / l, (pt.z - q.z) / l], null]
+      return [[0, 0], l - pt.r < 1.6 && f % 9 === 0 && q.stamina > 30 ? 'light' : null]
+    }
+    for (let f = 0; f < 2100; f++) {
+      now += dt * 1000
+      let m = [0, 0], pr = null
+      if (f === 0) atFog()
+      if (f === 2) pr = 'use' // atravessa a névoa
+      if (f === 10) pr = 'lock'
+      if (f === 150) bo.posture = 160 // falta pouco: o próximo bote aparado quebra a postura
+      if (f > 10 && f < 1200 && !q.dead && f !== 150 && !bot3.dead) [m, pr] = bossBot(f, f > 150 && !bot3.p2)
+      if (f === 600 && bo.phase === 1) bo.hp = 20 // encurta a fase 1
+      if (bo.phase === 2 && !bot3.p2) bot3.p2 = f
+      // morre na fase 2 (o robô para): volta no cruceiro e o chefe dorme de novo, fase 1, vida cheia
+      if (bot3.p2 && f === bot3.p2 + 450) { bot3.dead = f; q.hp = 1 }
+      if (bot3.dead && f === bot3.dead + 260) s11.reset = [q.dead, bo.state, bo.phase, bo.hp, bo.dead]
+      // entra de novo e vence (vida do chefe encurtada: o que vale é a troca de fase e o fim)
+      if (bot3.dead && f === bot3.dead + 270) { atFog(); pr = 'use'; bot3.again = f }
+      if (bot3.again && f === bot3.again + 5) bo.hp = 1
+      if (bot3.again && bo.phase === 2 && bo.state === 'fight' && bo.hp > 1 && !bo.dead) bo.hp = 1
+      if (bot3.again && f > bot3.again && !bo.dead && !q.dead) [m, pr] = bossBot(f, false)
+      if (bot3.again && bo.dead && !bot3.won) bot3.won = f
+      if (bot3.won && f > bot3.won + 30 && f < bot3.won + 200) m = go({ x: 32, z: -50 }) // sai pela névoa desfeita
+      if (bot3.won && f === bot3.won + 200) {
+        s11.out = Math.round(q.z * 100) / 100
+        const d = g2.save(); g2.load(JSON.parse(JSON.stringify(d)))
+        s11.save = [d.vencidos.includes('castro'), world.fogs.find((w) => w.id === 'castro').col.off, bo.dead, JSON.stringify(g2.save()) === JSON.stringify(d)]
+      }
+      g2.setInput('local', { mx: m[0], mz: m[1], ax: 0, az: 0, run: 0 })
+      if (pr) g2.act('local', pr)
+      g2.update(dt)
+      if (trace) trace.push(`b${f} ${q.x.toFixed(3)},${q.z.toFixed(3)} hp ${q.hp}${q.dead ? ' DEAD' : ''}${q.safe ? ' safe' : ''} | ${bo.name} ${bo.x.toFixed(2)},${bo.z.toFixed(2)} ${bo.state}${bo.atk ? ':' + bo.atk.name + ':' + bo.atk.phase : ''} hp ${bo.hp} pos ${bo.posture.toFixed(1)}`)
+    }
+
     if (trace) (await import('node:fs')).writeFileSync(process.env.SIM_TRACE, trace.join('\n'))
     const r = (v) => (typeof v === 'number' ? Math.round(v * 1e6) / 1e6 : v)
     const state = {
-      s9, s10, vale: [r(q.x), r(q.z), r(q.gy), q.bread, q.home, q.cera, q.gourdMax],
+      s9, s10, s11, vale: [r(q.x), r(q.z), r(q.gy), q.bread, q.home, q.cera, q.gourdMax],
       players: [...game.players.values()].map((q) => [q.id, r(q.x), r(q.z), r(q.gy), q.lv, r(q.stamina), r(q.facing), q.tired]),
       door: door ? [r(door.x), r(door.z)] : null,
       camera: [r(camera.cam.position.x), r(camera.cam.position.y), r(camera.cam.position.z)],
@@ -350,7 +417,7 @@ export async function SimFingerprint(vite, frames = 6100) {
     }
     const [, x, z, , lv, st] = state.players[0]
     const t0 = game.targets[0]
-    return { hash: createHash('sha256').update(JSON.stringify(state)).digest('hex'), summary: `jogador em (${x.toFixed(2)}, ${z.toFixed(2)}) · andar ${lv} · fôlego ${Math.round(st)} · ${rolls} rolamentos · boneco: ${t0.hits} golpes, ${t0.dmg} de dano · levou ${hurts} golpes, ${deaths} morte(s), ${kills} inimigo(s) vencido(s) · escudo ${s6.block}, aparos ${s6.parry}, guarda quebrada ${s6.guardBreak}, joelhos ${s6.broken}, críticos ${s6.critical} · curas ${s7.healed}, perdidas ${s7.lost}, vazio ${s7.empty}, vida ${p.hp}, goles ${p.gourd}, pães ${p.bread} · descansos ${s8.rest}, velas ${s8.candle}, pegas ${s8.pick}, perdidas ${s8.lost}, cera ${p.cera}, save ${s8.roundtrip ? 'ok' : 'DIFERENTE'} · vale: itens ${s9.pickups.length}, portão fechado ${s9.locked}, atalho ${s9.shortcut}, fim do corredor (${s9.laneEnd}), névoa ${s9.fog} (parou em z ${s9.fogZ}), rio (parou em z ${s9.riverZ}), save ${s9.roundtrip ? 'ok' : 'DIFERENTE'} · S10: roubada ${s10.stolen}/devolvida ${s10.back}, pedras ${s10.stones} (escudo ${s10.stoneBlocks}, acertou ${s10.stoneHits}), derrubado ${s10.knockdown}, trasnos chamados ${s10.summons}, Lobishome no save ${s10.lobisVencido}, volta ${s10.lobisVolta}, chamados somem ${s10.tempSomem}, ferreiro z ${s10.ferreiro}, hórreo z ${s10.horreo}, anaco [andar, goles] ${s10.anaco}${door ? '' : ' · casa sem porta?'}` }
+    return { hash: createHash('sha256').update(JSON.stringify(state)).digest('hex'), summary: `jogador em (${x.toFixed(2)}, ${z.toFixed(2)}) · andar ${lv} · fôlego ${Math.round(st)} · ${rolls} rolamentos · boneco: ${t0.hits} golpes, ${t0.dmg} de dano · levou ${hurts} golpes, ${deaths} morte(s), ${kills} inimigo(s) vencido(s) · escudo ${s6.block}, aparos ${s6.parry}, guarda quebrada ${s6.guardBreak}, joelhos ${s6.broken}, críticos ${s6.critical} · curas ${s7.healed}, perdidas ${s7.lost}, vazio ${s7.empty}, vida ${p.hp}, goles ${p.gourd}, pães ${p.bread} · descansos ${s8.rest}, velas ${s8.candle}, pegas ${s8.pick}, perdidas ${s8.lost}, cera ${p.cera}, save ${s8.roundtrip ? 'ok' : 'DIFERENTE'} · vale: itens ${s9.pickups.length}, portão fechado ${s9.locked}, atalho ${s9.shortcut}, fim do corredor (${s9.laneEnd}), névoa ${s9.fog} (parou em z ${s9.fogZ}), rio (parou em z ${s9.riverZ}), save ${s9.roundtrip ? 'ok' : 'DIFERENTE'} · S10: roubada ${s10.stolen}/devolvida ${s10.back}, pedras ${s10.stones} (escudo ${s10.stoneBlocks}, acertou ${s10.stoneHits}), derrubado ${s10.knockdown}, trasnos chamados ${s10.summons}, Lobishome no save ${s10.lobisVencido}, volta ${s10.lobisVolta}, chamados somem ${s10.tempSomem}, ferreiro z ${s10.ferreiro}, hórreo z ${s10.horreo}, anaco [andar, goles] ${s10.anaco} · S11: névoa ${s11.enter}, avisos ${Object.entries(s11.warns).map(([k, v]) => k + ' ' + v).join(', ')}, levou ${s11.hurt}, aparos ${s11.parry}, joelhos ${s11.broken}, críticos ${s11.critical}, fases ${s11.phase}, morreu e voltou [morto, estado, fase, vida, vencido] ${s11.reset}, venceu ${s11.end}, névoa some ${s11.lift}, saiu em z ${s11.out}, save [vencido, névoa aberta, chefe morto, igual] ${s11.save}${door ? '' : ' · casa sem porta?'}` }
   } finally {
     Math.random = realRandom
     Error.stackTraceLimit = realLimit

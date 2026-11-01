@@ -39,6 +39,8 @@ O comando `npm run check` confere essa regra sozinho.
 ## Os mapas
 - O jogo abre no **Val de Santa Baia**, a área da demo (S9, ainda em blocos simples: a arte vem no S13).
 - Com `?arena` no fim do endereço, abre a **arena de teste** (onde nasceram o rolamento, os golpes e o Romeiro).
+- Com `?castro` no fim do endereço, começa **na frente da névoa do chefe** (para testar o chefe sem atravessar o vale).
+  Esse atalho tem um save só dele, que recomeça toda vez: o seu save de verdade não muda.
 - Cada mapa tem o seu save.
 
 ## Progresso salvo
@@ -75,6 +77,9 @@ Exemplos:
   (dá para reescrever os textos ali). O desenho do lugar (muros, casas, árvores) fica em `src/game/world/santa-baia.js`.
 - Trasno, fondeiro e Lobishome: `trasno`, `fondeiro`, `lobishome` (vida, velocidade, dano, avisos). Ex.: o fondeiro atira menos
   vezes aumentando `wait`; o salto do Lobishome derruba (`strong`); o uivo acontece quando a vida cai abaixo de `howlAt`.
+- O chefe: `castro` (vida de cada fase, cera, tempo da transformação). A Serpe em `castro.serpe` e a Moura em `castro.moura`:
+  cada golpe tem `warn` (o aviso; mais alto = mais fácil), `recover` (a janela para bater) e `dmg`. Aparar enche `parryBreak`
+  da postura (0,25 = um quarto). A música: `music` (volume e andamento das duas fases).
 
 ## Como testar
 - Depois de cada PR: siga `docs/TESTE-MANUAL.md` (poucos minutos).
