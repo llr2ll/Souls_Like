@@ -48,6 +48,8 @@ npm run build    # gera dist/ (para hospedar)
      crítico; fôlego baixo segurando → guarda quebrada. O hash conta bloqueios, aparos, guardas quebradas, joelhos e críticos.
      S7 (167–180 s) longe dos inimigos: bebe com pouca vida, bebe de vida cheia, come pão, leva golpe no meio do gole (`game.hurt`),
      esvazia a cabaça e tenta de novo. O hash conta curas, perdas, vazios, vida, goles e pães.
+     S8 (180–203 s) vence um Romeiro (+cera), descansa no cruceiro, morre longe (vela), volta no cruceiro, pega a vela, morre de novo
+     e outra vez antes de pegar (cera perdida); salva e carrega (tem de dar igual). O hash conta descansos, velas, pegas, perdas.
      **PR de organização tem de dar igual.** PR que muda a jogabilidade de propósito: `npm run check -- --update-sim` e dizer isso na descrição.
      Cada PR de jogabilidade acrescenta a sua cena ao roteiro. `SIM_TRACE=arquivo node scripts/sim.mjs` grava o rastro quadro a quadro.
 - `npm run smoke` — teste automático (~1 min). Compila, sobe a página na porta **5199**, abre no Chromium sem tela, anda com o teclado,
@@ -83,7 +85,9 @@ src/shared/               peças prontas (copiadas do survivor)
 src/game/                 este jogo
   main.js                 liga tudo: renderer, luz, arena, câmera, teclado, controle, laço; Wire() conecta motor ↔ peças ↔ sons;
                           Impact() = tremor + vibração; Note() = aviso curto no alto da tela
-  game.js                 estado e regras (sem desenhar: o replay roda isto sem navegador): botão de rolar/correr, rolamento
+  game.js                 estado e regras (sem desenhar: o replay roda isto sem navegador): movimento, golpes, escudo, cura, dano
+  progress.js             cruceiros (descansar), cera, vela da morte e save (o que entra no save e como volta)
+  world/candle.js         velinhas do cruceiro (acendem no 1º descanso) e a vela da morte (com facho de luz)
   hud.js                  página, não 3D: vida, fôlego, vida e postura do alvo travado, placar (cabaça, pão), borda vermelha
   enemies/enemy.js        inimigo genérico: vê, geme, aproxima, avisa, golpeia, recua, espera, tropeça, morre, volta para casa
   enemies/romeiro.js      Romeiro perdido: humanoide do survivor + bordão e foice, poses da pancada e dos dois cortes
@@ -109,6 +113,8 @@ src/game/                 este jogo
   Inimigos: `enemy-alert` (gemido), `enemy-warn` ({ e, name }: som próprio de cada golpe), `enemy-swing`, `enemy-stagger`, `enemy-death`.
   `use` ({ p, what: 'drink' | 'eat' }) → gole/mastigar; `healed` → sininhos + anel dourado; `use-lost` e `use-empty` → som seco
   (vazio também avisa "A cabaça está vazia").
+  Progresso (`progress.js` → `WireProgress()` em `main.js`): `rest` ({ first }: "Vela acesa" no 1º), `rest-denied`, `cera` (inimigo
+  derrete: faíscas cor de cera), `candle`, `candle-pick`, `candle-lost`, `save` (grava no navegador), `death` (tela escura), `respawn`.
   `roll` e `roll-land` (o jogo avisa; `main.js` toca o impulso e o baque). Passos e respiração ofegante: `BodySounds()` em `main.js`.
 - Peças de `shared` recebem os números como parâmetro: `UpdatePlayerMovement(p, dt, colliders, BALANCE.move)`.
 
@@ -117,7 +123,8 @@ Copiado do survivor. **Só ganha coisas, nunca muda** (para o co-op pelo celular
 - `game.setInput(id, { mx, mz, ax, az, run, fire, guard })` — mover (-1..1), mirar (-1..1), correr 0/1, `fire` só no mouse,
   `guard` 0/1 = escudo erguido (acrescentado no S6, em `engine/input/contract.js`).
 - `game.act(id, ação)` — fazem efeito: `roll` (S2), `light`, `heavy` (S3), `lock`, `lock-next`, `lock-prev` (S4), `parry` (S6),
-  `heal` (cabaça) e `eat` (pão de milho; ação nova, S7). `use` e `swap` já existiam no contrato e ganham efeito depois.
+  `heal` (cabaça) e `eat` (pão de milho; ação nova, S7), `use` (S8: descansar no cruceiro / pegar a vela; S9: portas e alavancas).
+  `swap` já existia no contrato e ganha efeito no S12.
 - `run` = **botão de rolar/correr segurado**. O jogo decide (`game.js`): soltar antes de `BALANCE.roll.tap` (0,25 s) rola; segurar mais corre.
   O jogo guarda o que chegou em `p.raw` e monta `p.input` (o que o movimento copiado recebe).
 - Teclado e controle mexem o mesmo jogador, id `'local'`, e mandam o mesmo contrato (`engine/input/keyboard.js` e `gamepad.js`).
@@ -182,7 +189,15 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
   alcance, na abertura, à vista e **não invulnerável** (`p.safe`). Levou golpe no aviso ou no golpe: não para (sem troca de golpes);
   fora disso tropeça. As poses do golpe vão pelo `e.pose`/`e.poseW` do humanoide (mudança no `zombie-model.js`).
 - Jogador levou golpe: perde o golpe/rolamento em andamento, tropeça 0,35 s empurrado para trás (não age; ações apertadas ficam na
-  fila). Morreu: cai, e em 3,5 s volta ao começo com vida cheia; os inimigos renascem (provisório: o cruceiro e a cera chegam no S8).
+  fila). Morreu: tela escura "A névoa te levou"; em 4 s (de jogo) volta no último cruceiro em que descansou (antes do 1º descanso:
+  no começo) como se tivesse descansado (vida, fôlego e cabaça cheios; inimigos renascem).
+- Cera (`p.cera`): ganha ao vencer (o inimigo tem `e.cera`, de `BALANCE.<tipo>.cera`). Morreu com cera: vira a vela da morte no último
+  chão firme (`p.safeX/Z`, fora da água e no chão de fora); a vela antiga não pega apaga e a cera dela se perde. Pegar = E/A a 1,6 m.
+- Cruceiros: `BALANCE.cruceiros` (o da arena é o enfeite que já existia em (9, 3)). Descansar = E/A a 2,8 m; não dá com inimigo
+  atrás de você a menos de 15 m. Descanso: vida/fôlego/cabaça cheios, inimigos resetados, `p.home` = esse cruceiro, salva.
+- Save: `progress.snapshot()` (formato do DESIGN 7 + `acesos` e `pao`) → aviso `save` → `localStorage['camino-das-animas-save']`.
+  Salva ao descansar, morrer e pegar a vela. Ao abrir a página, `game.load()` continua de onde parou. `?novo` no endereço apaga.
+- O ganho de cera conta rolando no placar (canto de baixo à direita); o aviso de E/A aparece no meio de baixo (`hud.prompt`).
 - Corpos não se atravessam (`separate()` em `game.js`: jogador e inimigos vivos se empurram).
 - Escudo (`p.guard`): só vale de frente (±`guard.arc`); segurar gasta fôlego = dano × 1,5; zerou = guarda quebrada (`p.stunT`, 1 s
   sem agir). Anda a 2,4 m/s (via `p.slowAct`, que o movimento copiado já multiplicava). Fôlego volta a 40% (o jogo corta o que o
@@ -197,7 +212,7 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
 - Cabaça (R/X) e pão (F/Y; o DESIGN 3.7 não tinha botão para o pão: escolhi Y, que estava livre). Passam pela fila de ações; não
   precisam de fôlego. O gole/pão é gasto no começo (`p.gourd`, `p.bread`); a cura entra em `gourd.healAt` (pão: no fim). Levou golpe
   antes: perdeu (`use-lost`). Bebendo anda a 1,8 m/s e não rola, golpeia nem ergue o escudo. A mão esquerda leva a cabaça à boca com o
-  cotovelo à frente (assim a rodela do antebraço fica de quina). Provisório: começa com 3 pães, e voltar ao começo enche a cabaça.
+  cotovelo à frente (assim a rodela do antebraço fica de quina). Provisório: começa com 3 pães. A cabaça enche no cruceiro.
 - `game.hurt(p, dmg, dir)` = dano de fora dos golpes corpo a corpo (pedra de funda no S10; o replay usa).
 - O 3º leve é uma estocada nova no kit do Samurai (`thrust`); o pesado também é novo (`heavy`). O rastro (`fx/trail.js`) usa a ponta
   da espada (`model.muzzle`) e o meio do caminho até o peito.
@@ -235,3 +250,6 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
 - **s7-cabaca (S7)** — cabaça (4 goles, 1,1 s, cura 40 aos 0,7 s; golpe antes = gole perdido), pão de milho (cura 15 em 0,5 s),
   placar no canto de baixo (cabaça e pão, piscam ao usar), borda vermelha com vida abaixo de 25%. Animação de beber/comer no
   `player.js` (cabaça e pão aparecem na mão esquerda). `game.hurt` exposto.
+- **s8-morte-cera-cruceiro (S8)** — `progress.js`: cruceiro da arena vira ponto de descanso (E/A; "Vela acesa" no 1º; cura, enche a
+  cabaça, inimigos voltam, salva), cera ao vencer (Romeiro 30; placar de cera), morte com tela escura e volta no cruceiro, vela da
+  morte com facho de luz e zumbido (receita `candle` nova no `sfx.js`), uma chance de pegar, save no navegador (`?novo` apaga).

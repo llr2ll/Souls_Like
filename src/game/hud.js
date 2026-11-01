@@ -3,6 +3,7 @@ import * as THREE from 'three'
 // Barras (página, não 3D). No canto de cima: vida (vermelha) e fôlego (verde). Barra maior = mais vida/fôlego, como nos souls.
 // Vida: o pedaço perdido fica claro por um instante e some devagar (dá para ver quanto o golpe tirou).
 // Fôlego cansado (zerou): a barra fica apagada até poder correr de novo.
+// Cera no canto de baixo à direita; o que dá para fazer com E/A (descansar, pegar a cera) no meio de baixo.
 // Sobre o alvo travado (DESIGN 8, item 11): barra de vida dele e, embaixo, a de postura (dourada, enche do meio para as pontas;
 // cheia = de joelhos). "Postura enchendo = falta pouco".
 const _v = new THREE.Vector3()
@@ -13,7 +14,15 @@ export function CreateHud(tune) {
   const st = $('#bars .stamina'), stFill = st.firstElementChild
   const tb = $('#target-bar'), tbFill = tb.querySelector('.fill'), tbPost = tb.querySelector('.posture')
   const gourd = $('#items .gourd'), bread = $('#items .bread'), danger = $('#danger')
-  let last = '', lag = 1, lagWait = 0, lastItems = ''
+  const cera = $('#cera'), ceraN = cera.querySelector('b'), prompt = $('#prompt')
+  let last = '', lag = 1, lagWait = 0, lastItems = '', shown = null, lastPrompt = ''
+  // cera: o número conta até o valor (ganhou: sobe rolando; perdeu: cai na hora)
+  function counter(dt, p) {
+    if (shown === null || p.cera < shown) shown = p.cera
+    else if (shown < p.cera) shown = Math.min(p.cera, shown + Math.max(1, (p.cera - shown) * 6 * dt))
+    const n = String(Math.floor(shown))
+    if (ceraN.textContent !== n) { ceraN.textContent = n; if (shown === p.cera && n !== '0') { cera.classList.remove('up'); void cera.offsetWidth; cera.classList.add('up') } }
+  }
   // placar dos itens (canto de baixo): cabaça com os goles, pão com a quantidade; pisca ao usar
   function items(p) {
     const key = `${p.gourd}/${p.bread}`
@@ -47,6 +56,7 @@ export function CreateHud(tune) {
         danger.classList.toggle('on', !p.dead && h < tune.danger) // pouca vida: borda vermelha pulsando
       }
       items(p)
+      counter(dt, p)
       // barra sobre o alvo travado (só quem tem vida: o boneco não tem)
       const e = p.lock
       if (!e || !e.maxHp || e.dead) { tb.style.display = 'none'; return }
@@ -57,6 +67,14 @@ export function CreateHud(tune) {
       tbFill.style.width = `${(100 * e.hp) / e.maxHp}%`
       tbPost.style.width = `${(100 * Math.min(e.posture || 0, e.maxPosture || 1)) / (e.maxPosture || 1)}%`
       tbPost.classList.toggle('broken', e.state === 'broken')
+    },
+    // o que dá para fazer aqui (E/A): it = progress.interactable(p); key = 'E' ou 'A'
+    prompt(it, key) {
+      const text = !it ? '' : it.kind === 'candle' ? `${key} · Pegar a cera (${it.cera})` : `${key} · Descansar no ${it.c.name}`
+      if (text === lastPrompt) return
+      lastPrompt = text
+      prompt.textContent = text
+      prompt.style.display = text ? 'block' : 'none'
     },
     // pedaço perdido volta a ficar cheio (renasceu)
     reset() { lag = 1 },

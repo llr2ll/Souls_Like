@@ -5,6 +5,7 @@ import { CreatePlayerModel } from '../shared/characters/player'
 import { UpdatePlayerMovement } from '../shared/characters/player-movement'
 import { CreateDummy } from './world/dummy'
 import { CreateRomeiro } from './enemies/romeiro'
+import { CreateProgress } from './progress'
 import { BALANCE } from './config/balance'
 
 // Estado e regras do jogo (sem desenhar: o replay do npm run check roda isto sem navegador).
@@ -15,6 +16,7 @@ import { BALANCE } from './config/balance'
 // 'hurt' (jogador levou golpe: { p, dmg, strong }), 'death' (jogador morreu), 'respawn'. Os inimigos avisam 'enemy-*' (enemies/enemy.js).
 // S6: 'block' (o escudo segurou), 'guard-break' (fôlego zerou segurando), 'parry-try' (começou a aparar), 'parry' (aparou).
 // S7: 'use' (começou a beber/comer: { p, what }), 'healed' (a cura entrou), 'use-lost' (levou golpe antes), 'use-empty' (acabou).
+// S8: cruceiros, cera, vela da morte e save ficam em progress.js (avisos de lá: 'rest', 'cera', 'candle', 'save'…).
 const DEG = Math.PI / 180
 const wrap = (a) => { a = (a + Math.PI) % (Math.PI * 2); if (a < 0) a += Math.PI * 2; return a - Math.PI }
 const KINDS = { romeiro: CreateRomeiro }
@@ -27,6 +29,7 @@ export function CreateGame(scene) {
   const dummies = BALANCE.dummies.map((d) => CreateDummy(scene, d.x, d.z))
   const enemies = []
   const targets = [...dummies] // o que pode levar golpe: bonecos e inimigos
+  const progress = CreateProgress(scene, enemies)
   let stopT = 0 // pausa no impacto: o jogo fica parado enquanto > 0
   let slowT = 0 // aparo certo: tudo fica lento enquanto > 0
   // velocidade no começo do rolamento: ela cai em curva (cosseno) até parar no fim, andando R.distance
@@ -51,6 +54,7 @@ export function CreateGame(scene) {
       guard: false, parryT: -1, stunT: 0, // escudo erguido agora; aparando há quanto tempo; aberto (guarda quebrada, aparo errado)
       gourd: BALANCE.gourd.sips, gourdMax: BALANCE.gourd.sips, bread: BALANCE.bread.start, // goles e pães
       use: null, useT: -1, healed: false, // bebendo ('drink') ou comendo ('eat'); há quanto tempo; a cura já entrou?
+      cera: 0, home: null, safeX: PL.start.x, safeY: 0, safeZ: PL.start.z, // cera; último cruceiro; último chão firme (a vela fica ali)
     })
   }
   // inimigos: o jogo (main.js) põe os da arena; o replay põe na hora da cena dele
@@ -80,11 +84,12 @@ export function CreateGame(scene) {
     p.queue = { what, t: roll ? R.buffer : AT.buffer, a: !roll && p.lock ? toward(p, p.lock) : stick(p) }
   }
   // ações: 'roll' rola, 'light' e 'heavy' atacam (o teclado e o controle rolam soltando o botão de correr cedo; ver update),
-  // 'parry' apara, 'lock' trava/solta, 'lock-next' / 'lock-prev' trocam para o alvo à direita / à esquerda na tela
+  // 'parry' apara, 'lock' trava/solta, 'lock-next' / 'lock-prev' trocam para o alvo à direita / à esquerda na tela,
+  // 'heal' bebe, 'eat' come, 'use' descansa no cruceiro / pega a vela
   function act(id, a) {
     const p = players.get(id)
     if (!p) return
-    if (a === 'roll' || a === 'light' || a === 'heavy' || a === 'parry' || a === 'eat') queue(p, a)
+    if (a === 'roll' || a === 'light' || a === 'heavy' || a === 'parry' || a === 'eat' || a === 'use') queue(p, a)
     else if (a === 'heal') queue(p, 'drink')
     else if (a === 'lock') p.lock ? setLock(p, null) : setLock(p, pickLock(p))
     else if ((a === 'lock-next' || a === 'lock-prev') && p.lock) setLock(p, nextLock(p, a === 'lock-next' ? 1 : -1) || p.lock)
@@ -180,14 +185,16 @@ export function CreateGame(scene) {
       p.dead = true; p.deadT = 0; p.hurtT = 0; p.lock = null; p.queue = null; p.dashT = 0
       p.model.die()
       events.emit('death', p)
+      progress.died(p) // a cera vira vela no chão; salva
     }
     return 'hit'
   }
-  // voltar ao começo (o cruceiro chega no S8): vida e fôlego cheios, inimigos de volta ao lugar
+  // voltar no último cruceiro (como se tivesse descansado): vida, fôlego e cabaça cheios, inimigos de volta ao lugar
   function respawn(p) {
-    Object.assign(p, { x: PL.start.x, z: PL.start.z, vx: 0, vz: 0, facing: Math.PI, hp: p.max, stamina: p.staminaMax, dead: false, deadT: 0, tired: false,
-      atk: null, rollT: -1, queue: null, hurtT: 0, stunT: 0, parryT: -1, kbx: 0, kbz: 0, dashT: 0, safe: false, use: null, useT: -1,
-      gourd: p.gourdMax }) // a cabaça enche (provisório: no S8 só o cruceiro enche)
+    const s = progress.spawnPoint(p)
+    Object.assign(p, { x: s.x, z: s.z, vx: 0, vz: 0, facing: s.facing, dead: false, deadT: 0,
+      atk: null, rollT: -1, queue: null, hurtT: 0, stunT: 0, parryT: -1, kbx: 0, kbz: 0, dashT: 0, safe: false, use: null, useT: -1 })
+    progress.refill(p)
     for (const e of enemies) e.reset()
     events.emit('respawn', p)
   }
@@ -257,7 +264,9 @@ export function CreateGame(scene) {
       const dir = Math.atan2(dx, dz)
       if (Math.abs(wrap(dir - A.a)) > d.arc * DEG) continue
       A.hit.add(e)
+      const was = e.dead
       e.hit({ dmg: d.dmg, posture: d.posture, dir, kind: A.kind })
+      if (!was && e.dead) progress.killed(p, e) // venceu: a cera dele é sua
       stopT = Math.max(stopT, BALANCE.juice.hitStop[A.kind] || 0)
       events.emit('hit', { by: p, target: e, kind: A.kind, x: e.x, z: e.z })
     }
@@ -276,10 +285,11 @@ export function CreateGame(scene) {
     // ação guardada: sai assim que der; senão perde a validade
     const q = p.queue
     if (q) {
-      const using = q.what === 'drink' || q.what === 'eat'
+      const using = q.what === 'drink' || q.what === 'eat' || q.what === 'use'
       if (q.what === 'roll' ? canRoll(p) : using ? free(p) && !rolling(p) && !p.atk : canAttack(p)) {
         p.queue = null
-        if (q.what === 'roll') startRoll(p, q.a)
+        if (q.what === 'use') { if (progress.use(p)) p.lock = null } // descansar / pegar a vela
+        else if (q.what === 'roll') startRoll(p, q.a)
         else if (q.what === 'parry') startParry(p)
         else if (q.what === 'drink' || q.what === 'eat') startUse(p, q.what)
         else startAttack(p, q.what, q.a)
@@ -325,6 +335,8 @@ export function CreateGame(scene) {
     p.slowAct = slow ? slow / (p.input.ax || p.input.az ? BALANCE.move.aim : BALANCE.move.walk) : 1
     if (p.use) p.input.run = 0
     updateUse(p, dt)
+    // último chão firme (fora da água, no chão de fora): se morrer num lugar sem volta, a vela fica aqui
+    if (!p.swim && p.lv === 0 && !roll) { p.safeX = p.x; p.safeZ = p.z; p.safeY = p.gy || 0 }
     const before = p.stamina
     UpdatePlayerMovement(p, dt, null, BALANCE.move)
     if (p.guard && p.stamina > before) p.stamina = before + (p.stamina - before) * GU.regen // escudo erguido: fôlego volta mais devagar
@@ -367,9 +379,14 @@ export function CreateGame(scene) {
     for (const p of players.values()) updatePlayer(p, dt)
     for (const e of targets) e.update(dt)
     separate()
+    progress.update(dt)
   }
+  // save: dados do primeiro jogador (solo) e o contrário (o main.js lê/grava no navegador)
+  const first = () => players.values().next().value
+  const save = () => first() && progress.snapshot(first())
+  const load = (data) => !!first() && progress.load(first(), data)
   function clear() { for (const id of [...players.keys()]) removePlayer(id) }
 
   // hurt: dano de fora dos golpes corpo a corpo (pedra de funda, armadilha; o replay também usa)
-  return { players, targets, enemies, addPlayer, removePlayer, spawn, setInput, act, update, clear, hurt: hurtPlayer }
+  return { players, targets, enemies, progress, addPlayer, removePlayer, spawn, setInput, act, update, clear, hurt: hurtPlayer, save, load }
 }

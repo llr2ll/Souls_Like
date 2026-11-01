@@ -36,6 +36,11 @@ O comando `npm run check` confere essa regra sozinho.
 - Os botões já seguem o plano (DESIGN 3.7), mas cada um só ganha efeito no PR dele (atacar no S3, travar no S4…).
 - Vibração: funciona no Chrome e no Edge. No Firefox o controle funciona, mas não vibra.
 
+## Progresso salvo
+- O jogo salva sozinho no navegador ao descansar no cruceiro, ao morrer e ao pegar a cera. Fechou a página e abriu: continua.
+- Para começar do zero, abra o jogo com `?novo` no fim do endereço (ex.: `https://…-5173.app.github.dev/?novo`).
+- O save fica no navegador em que você jogou (outro navegador ou outro computador começa do zero).
+
 ## Como ajustar o jogo
 Todos os números ficam num arquivo só: **`src/game/config/balance.js`**.
 Cada linha tem um comentário dizendo o que muda. Mude um número, salve, e o jogo recarrega sozinho (com `npm run dev` rodando).
@@ -59,6 +64,8 @@ Exemplos:
   Golpe crítico: `critical`.
 - Cura: `gourd` (goles, quanto cura, em que instante a cura entra) e `bread`. Andar bebendo: `usingSpeed`.
   A borda vermelha de pouca vida: `hud.danger`.
+- Cruceiro: `cruceiros` (onde ficam) e `rest` (distância para descansar). Cera de cada inimigo: `cera` dentro dele (ex.: `romeiro.cera`).
+  Tempo da tela escura ao morrer: `hurt.respawn`.
 
 ## Como testar
 - Depois de cada PR: siga `docs/TESTE-MANUAL.md` (poucos minutos).

@@ -27,6 +27,16 @@ html, body { height: 100%; margin: 0; background: #15120f; overflow: hidden; fon
 .slot.empty svg { opacity: .3 }
 .slot.used { animation: used .35s ease-out }
 @keyframes used { from { transform: scale(1.18); border-color: #fff } }
+#cera { position: absolute; right: 18px; bottom: 34px; padding: 4px 12px; background: #0009; border-radius: 6px; font-size: 18px; color: #f3e2b0 }
+#cera small { margin-left: 6px; font-size: 11px; opacity: .7 }
+#cera.up { animation: used .35s ease-out }
+#prompt { position: absolute; left: 50%; bottom: 90px; transform: translateX(-50%); padding: 6px 14px; background: #000a; border-radius: 6px; font-size: 15px; display: none }
+#title { position: absolute; left: 0; right: 0; top: 34%; text-align: center; font: 600 46px Georgia, serif; letter-spacing: 6px; color: #ffe2a0;
+  text-shadow: 0 0 18px #ffb347, 0 2px 4px #000; opacity: 0; transition: opacity 1.2s }
+#title.on { opacity: 1; transition: opacity .6s }
+#death { position: absolute; inset: 0; z-index: 4; background: #000; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 1.4s }
+#death span { font: 600 40px Georgia, serif; letter-spacing: 5px; color: #b9b2a2; opacity: 0; transition: opacity 1.2s .6s }
+#death.on, #death.on span { opacity: 1 }
 #danger { position: absolute; inset: 0; box-shadow: inset 0 0 140px 30px #8a0000; opacity: 0; transition: opacity .5s }
 #danger.on { opacity: .7; animation: pulse 1.2s ease-in-out infinite }
 @keyframes pulse { 50% { opacity: .4 } }
