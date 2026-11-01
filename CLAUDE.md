@@ -1,0 +1,131 @@
+# CLAUDE.md — memória do projeto
+
+Leia este arquivo inteiro antes de mexer em qualquer coisa. **Atualize-o em todo PR** (mapa de pastas, fatos, histórico).
+
+## O jogo
+Souls-like solo, visto de cima em 3/4, no navegador: **"O Camiño das Ánimas"** (nome provisório).
+Um peregrino vivo no Caminho de Santiago tomado pela névoa. Cruceiros são os pontos de descanso, a cabaça é o frasco de cura, a moeda é cera.
+Tudo em `docs/DESIGN.md` (conceito, números, área da demo, inimigos, plano de PRs S0–S15).
+JavaScript (ES Modules) + Three.js 0.184 + Vite. Tudo procedural: nenhum arquivo de modelo 3D nem de som.
+As peças genéricas foram **copiadas** do survivor do mesmo dono, "A paróquia sitiada" (`llr2ll/Zombie_Survivor`, antes `llr2ll/Game`).
+Origem de cada arquivo: `docs/ORIGEM.md`. Para o dono, a explicação leiga está em `docs/COMO-FUNCIONA.md`.
+
+## Quem é o dono e como falar com ele
+- Não lê código. Todo o código foi escrito por IA. Ele testa jogando.
+- Português do Brasil, frases curtas, sem jargão. Termo técnico → explique em uma frase.
+- Testa no GitHub Codespaces, como no survivor: `npm run dev` (porta 5173).
+- **Não precisa pedir "ok" antes de cada etapa** (pedido do dono em 01/11/2026: "apenas comece e depois eu ajusto").
+  Siga o plano do `docs/DESIGN.md` e diga o que fez. Pergunte só quando a decisão não tiver volta.
+- Toda mudança chega como pull request em `llr2ll/Souls_Like`. **Nunca** faça push direto na `main`.
+  (Única exceção, já feita: o README inicial, porque o repositório nasceu vazio, sem `main`.)
+- PRs empilhados: cada um sai da branch do anterior enquanto o anterior não entrou na `main`.
+- O `llr2ll/Zombie_Survivor` é **só leitura**: nunca criar branch, commit ou PR nele.
+
+## Como rodar
+```bash
+npm install
+npm run dev      # jogo (porta 5173)
+npm run build    # gera dist/ (para hospedar)
+```
+
+## Como testar
+- `npm run check` — poucos segundos, sem navegador. Rodar SEMPRE antes de abrir PR. Duas verificações:
+  1. **Camadas:** imports só descem (`src/game` → `src/shared` → `src/engine`); import para arquivo ou pacote inexistente falha;
+     a página tem de apontar para scripts que existem.
+  2. **Jogo (replay):** `scripts/sim.mjs` joga 60 s com sorteio e relógio fixos e compara o hash com `scripts/sim-fingerprint.txt`.
+     Roteiro do S0: anda em 8 direções (bate no muro, no cruceiro, nas pedras), corre às vezes, vai até a porta da casa, entra e sai.
+     **PR de organização tem de dar igual.** PR que muda a jogabilidade de propósito: `npm run check -- --update-sim` e dizer isso na descrição.
+     Cada PR de jogabilidade acrescenta a sua cena ao roteiro. `SIM_TRACE=arquivo node scripts/sim.mjs` grava o rastro quadro a quadro.
+- `npm run smoke` — teste automático (~1 min). Compila, sobe a página na porta **5199**, abre no Chromium sem tela, anda com o teclado
+  e **falha se aparecer qualquer `console.error`** ou erro de página. Capturas e log em `smoke/` (versionados: o PR mostra as capturas).
+  Sem acesso ao download do Playwright: `SMOKE_CHROME=/usr/bin/google-chrome node scripts/smoke.mjs` usa um Chrome já instalado.
+  Sem placa de vídeo o jogo roda a 3–10 FPS: pega erro de carregar/iniciar/teclas, não bugs de longo prazo.
+- `docs/TESTE-MANUAL.md` — checklist de poucos minutos que o dono roda depois de cada PR (inclui anotar o FPS).
+- FPS real só vale na máquina do dono. Nunca tire conclusão de desempenho pelo smoke.
+
+## Mapa de pastas (hoje)
+Regra: **imports só descem** — `src/game` → `src/shared` → `src/engine` (verificado por `npm run check`).
+`engine` não sabe que existem inimigos nem armas. `shared` = peças prontas copiadas do survivor. `game` = regras deste jogo.
+```
+index.html, main.css      página do jogo → carrega src/game/main.js
+scripts/                  check.mjs (camadas + replay), sim.mjs (replay), smoke.mjs (navegador sem tela), sim-fingerprint.txt
+smoke/                    capturas + log do último npm run smoke
+docs/                     DESIGN (direção do jogo), ORIGEM (de onde veio cada arquivo), COMO-FUNCIONA (leigo), TESTE-MANUAL (checklist)
+src/engine/               genérico (copiado do survivor; novo: world/ground.js)
+  core/                   loop.js (laço, dt ≤ 0,05), events.js (avisos), memo.js (cache com limite)
+  render/                 style.js (paleta, materiais, vento), light.js, entity-shadows.js (sombras falsas), follow.js (FPS)
+  input/                  contract.js (contrato de input), keyboard.js (teclado+mouse)
+  audio/engine.js         Web Audio: barramentos, primitivas, som posicional
+  world/                  collision.js (grade de colisão), pathing.js (desvio, A*), noise.js, ground.js (chão/água que o jogo informa)
+src/shared/               peças prontas (copiadas do survivor)
+  characters/             player.js (esqueleto/animação), looks.js (visual), kits.js (armas + IK), player-movement.js
+  creatures/zombie-model.js  humanoide articulado (12 variações): base dos inimigos
+  worldgen/               buildings.js (casas), buildings-registry.js (portas, andares, recorte do telhado), assets.js (árvore, pedra,
+                          cruceiro, hórreo, poço), climate.js (ainda não ligado), names.js (nomes galegos)
+  fx/                     effects.js, gore.js
+  audio/                  sfx.js (efeitos soltos)
+src/game/                 este jogo
+  main.js                 liga tudo: renderer, luz, arena, câmera, teclado, laço; Wire() conecta motor ↔ peças ↔ sons
+  game.js                 estado e regras (sem desenhar: o replay roda isto sem navegador)
+  camera.js               câmera de cima em 3/4, fixa, seguindo o jogador
+  config/balance.js       TODOS os números ajustáveis, comentados em português
+  world/arena.js          arena de teste (S0): chão, muro, cruceiro, hórreo, carvalhos, pedras e uma casa
+  world/place-house.js    põe uma casa do survivor no mapa (trecho do gerador do survivor)
+```
+
+**Como as camadas conversam sem import subindo** (ligado em `src/game/main.js`, função `Wire()`):
+- `SetGround(fn, água)` (`engine/world/ground.js`): o jogo diz a altura do chão e da água. Movimento e sangue perguntam ali.
+- `SetDeepTest(TooDeep)`: água funda bloqueia. `SetCameraSlope(s)`: inclinação da câmera para o recorte do telhado.
+- Avisos (`engine/core/events.js`): as casas emitem `door-open`, `door-close`; o jogo toca o som.
+- Peças de `shared` recebem os números como parâmetro: `UpdatePlayerMovement(p, dt, colliders, BALANCE.move)`.
+
+## Contrato de input (proteger)
+Copiado do survivor. **Só ganha coisas, nunca muda** (para o co-op pelo celular funcionar depois).
+- `game.setInput(id, { mx, mz, ax, az, run, fire })` — mover (-1..1), mirar (-1..1), correr 0/1, `fire` só no mouse.
+- `game.act(id, ação)` — no S0 nenhuma ação faz efeito. Planejadas (DESIGN 3.7): `light`, `heavy`, `roll`, `parry`, `lock`, `heal`
+  (`use` e `swap` já existem). Bloquear (`guard`) é de segurar: entra como campo novo no `setInput`.
+- Jogador do teclado tem id `'local'`.
+
+## Decisões tomadas (não reabra sem perguntar ao dono)
+- Repositório próprio; peças copiadas do survivor (origem `e4314ee`). Conceito A (O Camiño das Ánimas), moeda cera.
+- Câmera de cima em 3/4, fixa, mais perto que a do survivor (~50°, ~13 m, campo de visão 45°). O stick direito não gira a câmera.
+- Solo primeiro. Co-op local só depois da demo. Controle de videogame + teclado e mouse; celular só no co-op.
+- Mapa feito à mão, interligado, com atalhos. Nada de mundo infinito.
+- JavaScript + Three.js + Vite. Sem TypeScript, sem ECS, sem engine nova, sem React.
+- Jogo pago na Steam, com demo. Sem microtransações.
+- Sensação antes de conteúdo: movimento, rolamento e 1 ataque gostosos no controle antes de inimigos e áreas.
+
+## Regras de trabalho
+- PRs pequenos. Nunca misture reorganização com mudança de jogabilidade no mesmo PR.
+- Todo número de jogabilidade em `src/game/config/balance.js`, com comentário.
+- Arquivo copiado do survivor e alterado: anote em `docs/ORIGEM.md` (o que mudou e por quê). Copie sem reescrever.
+- Copie só o que o jogo usa. Nada de carros, chunks, estradas, placas, relay (volta com o co-op).
+- Nenhuma dependência nova sem perguntar (hoje: `three`; `vite` e `playwright` só para desenvolver).
+- Comentários no código em português, curtos.
+
+## Formato de cada PR
+Título claro + descrição com:
+- O que mudou (para leigo, até 5 linhas) · Por que · Como testar (passos numerados, dizendo o que ele deve ver)
+- **Sensação:** o que o dono deve sentir jogando (uma frase) · **Como testar no controle:** botões e o que acontece
+- Capturas do `npm run smoke` (links para `smoke/*.jpg` no commit do PR) · Origem (o que foi copiado/alterado, `docs/ORIGEM.md`)
+- Risco e como desfazer
+
+## Proibido (até o dono liberar)
+Branch, commit ou PR no `llr2ll/Zombie_Survivor`. Mudar o contrato de input (só acrescentar). Online com uma tela por jogador; netcode.
+Arquivos de modelo 3D ou de som; dependência nova. Conteúdo além da demo antes de a demo estar divertida.
+TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
+
+## Fatos que não são óbvios no código
+- O visual do jogador é o do **Samurai** do survivor (`BALANCE.player.look`), provisório até o peregrino.
+- A tecla **Shift** corre e o **Espaço** ainda chama `jump` (o survivor pula; aqui não faz nada). No S2 o Espaço vira rolar.
+- Com o mouse apertado o jogador "mira" (anda devagar virado para o mouse): herança do survivor; sai quando o ataque do souls chegar.
+- Casas: a porta fica na frente (+z, virada para a câmera) quando `ry = 0`. Na arena, a casa `stone2` está em (-8, -8) e a porta em (-8, -4,6).
+- O replay só fixa o sorteio feito por código de `src/` (o Vite e o Three.js também sorteiam).
+- `window.__game` existe só no `npm run dev` (testes e depuração).
+- Teclas do motor copiado que continuam valendo: **M** liga/desliga o som.
+
+## Histórico de PRs
+- **s0-base (S0)** — cópia das peças do survivor (`e4314ee`), `package.json`, este CLAUDE.md, `docs/ORIGEM.md`, `docs/COMO-FUNCIONA.md`,
+  `docs/TESTE-MANUAL.md`, `npm run check` (camadas + replay) e `npm run smoke`. Arena plana de 40 × 40 m com muro, cruceiro, hórreo, carvalhos,
+  pedras e uma casa de 2 andares (antecipada do S1, para provar que a cópia das casas funciona). Jogador anda no teclado; câmera nova básica.
+- **fase1-design** — `docs/DESIGN.md`: conceito A (O Camiño das Ánimas), números, área da demo, inimigos, plano de PRs. Só documento.
