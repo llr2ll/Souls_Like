@@ -44,8 +44,10 @@ Para conferir se um arquivo continua igual: `git diff --no-index <survivor>/src/
 | `src/shared/worldgen/names.js` | Saíram `RoadCode` e `Destination` e o import de `worldgen/layout.js` | Dependiam do mapa de estradas. Ficaram as listas de nomes, `NodeName` e `StreetName` |
 | `src/engine/input/keyboard.js` | **Substituído no S2** por um leitor guiado pelo mapa do jogo (`BALANCE.keys`), igual ao do controle. (No S0 só tinha mudado a tecla H: `getElementById('room')?.`) | O do survivor mirava com o mouse e tinha teclas fixas (Shift corre, Espaço pula). Aqui Espaço rola/corre, Shift é modificador e o clique ataca |
 | `src/shared/characters/player-movement.js` (S2) | Fôlego: a recuperação espera `tune.staminaDelay` sem gastar (`p.restT`); o máximo é `p.staminaMax` (era 100 fixo) | DESIGN 3.1: 35/s depois de 0,5 s sem gastar; Alento aumenta o máximo. Sem `staminaDelay` (survivor) fica igual ao original |
+| `src/engine/input/contract.js` (S6) | Ganhou o campo `guard` (0/1, escudo erguido). Nada mudou nos que existiam | Bloquear é de segurar (DESIGN 3.7). O contrato só ganha coisas |
+| `src/shared/characters/player.js` (S6) | `opts.shield`: rodela no antebraço esquerdo (a mão esquerda sai do cabo da espada); pose de guarda (`p.guard`) e de aparo (ação `parry`); `model.shield` | DESIGN 3.3: escudo desde o começo |
 | `src/shared/creatures/zombie-model.js` (S5) | Pose vinda do jogo (`e.pose` = ângulos dos ombros e do tronco, `e.poseW` = peso) misturada à animação; `hands` (um ponto na mão de cada braço para pendurar armas) | O Romeiro ergue o bordão e corta com a foice; o zumbi do survivor só estendia os braços |
-| `src/shared/characters/kits.js` (S3) | Samurai ganhou duas trilhas: `thrust` (estocada) e `heavy` (golpe pesado: ergue, segura, desce) | DESIGN 3.2: o 3º leve é estocada; o pesado tem preparação de 0,45 s |
+| `src/shared/characters/kits.js` (S3, S6) | Samurai ganhou as trilhas `thrust` (estocada), `heavy` (golpe pesado: ergue, segura, desce) e `riposte` (crítico: crava, torce, puxa) | DESIGN 3.2 e 3.4 |
 | `src/shared/characters/player.js` (S2) | Ação `roll`: encolhe (joelhos no peito, costas curvadas, braços nos joelhos) e dá uma cambalhota em volta do centro do corpo (`ROLL_C`). Rolando, não "planta" os pés nem faz a pose de mira | O survivor não rolava |
 
 ## Arquivos novos

@@ -3,14 +3,15 @@ import * as THREE from 'three'
 // Barras (página, não 3D). No canto de cima: vida (vermelha) e fôlego (verde). Barra maior = mais vida/fôlego, como nos souls.
 // Vida: o pedaço perdido fica claro por um instante e some devagar (dá para ver quanto o golpe tirou).
 // Fôlego cansado (zerou): a barra fica apagada até poder correr de novo.
-// Sobre o alvo travado (DESIGN 8, item 11): barra de vida dele (a de postura chega no S6).
+// Sobre o alvo travado (DESIGN 8, item 11): barra de vida dele e, embaixo, a de postura (dourada, enche do meio para as pontas;
+// cheia = de joelhos). "Postura enchendo = falta pouco".
 const _v = new THREE.Vector3()
 
 export function CreateHud(tune) {
   const $ = (s) => document.querySelector(s)
   const hp = $('#bars .hp'), hpFill = hp.querySelector('.fill'), hpLag = hp.querySelector('.lag')
   const st = $('#bars .stamina'), stFill = st.firstElementChild
-  const tb = $('#target-bar'), tbFill = tb.querySelector('.fill')
+  const tb = $('#target-bar'), tbFill = tb.querySelector('.fill'), tbPost = tb.querySelector('.posture')
   let last = '', lag = 1, lagWait = 0
 
   return {
@@ -37,6 +38,8 @@ export function CreateHud(tune) {
       tb.style.left = `${((_v.x + 1) / 2) * innerWidth}px`
       tb.style.top = `${((1 - _v.y) / 2) * innerHeight}px`
       tbFill.style.width = `${(100 * e.hp) / e.maxHp}%`
+      tbPost.style.width = `${(100 * Math.min(e.posture || 0, e.maxPosture || 1)) / (e.maxPosture || 1)}%`
+      tbPost.classList.toggle('broken', e.state === 'broken')
     },
     // pedaço perdido volta a ficar cheio (renasceu)
     reset() { lag = 1 },

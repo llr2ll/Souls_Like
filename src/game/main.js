@@ -12,6 +12,7 @@ import { SetGround, TooDeep } from '../engine/world/ground'
 import { SetEars } from '../engine/audio/engine'
 import { UpdateBuildings, UpdateDoors, SetCameraSlope } from '../shared/worldgen/buildings-registry'
 import { sfx } from '../shared/audio/sfx'
+import { CreateFX } from '../shared/fx/effects'
 import { CreateGame } from './game'
 import { CreateCamera } from './camera'
 import { CreateHud } from './hud'
@@ -30,7 +31,7 @@ function Wire(camera) {
   events.on('roll', (p) => sfx('jump', { x: p.x, z: p.z })) // impulso com gemido curto
   events.on('roll-land', (p) => sfx('land', { x: p.x, z: p.z }))
   events.on('swing', ({ p, kind }) => sfx('swing', { x: p.x, z: p.z, heavy: kind === 'heavy' })) // assobio da lâmina
-  events.on('hit', ({ x, z, kind }) => { sfx('slice', { x, z }); if (kind === 'heavy') sfx('stomp', { x, z }) })
+  events.on('hit', ({ x, z, kind }) => { sfx('slice', { x, z }); if (kind === 'heavy' || kind === 'critical') sfx('stomp', { x, z }) })
   events.on('lock', ({ target }) => sfx('ui', { f: target ? 1250 : 700 })) // travou / soltou: um "tic"
   // inimigos: cada golpe tem o seu som de aviso (DESIGN 8): pancada = gemido grave, dois cortes = rosnado curto
   const WARN = { smash: 'growl', cuts: 'snarl' }
@@ -41,6 +42,21 @@ function Wire(camera) {
   events.on('enemy-death', (e) => sfx('zdeath', { x: e.x, z: e.z }))
   events.on('hurt', ({ p }) => { sfx('hurt', { x: p.x, z: p.z }); sfx('impact', { x: p.x, z: p.z }) })
   events.on('death', (p) => sfx('death', { x: p.x, z: p.z }))
+  // escudo e aparo: madeira no bloqueio, "tlin" de metal no aparo (DESIGN 8, item 4)
+  events.on('block', ({ p }) => sfx('doorclose', { x: p.x, z: p.z }))
+  events.on('guard-break', ({ p }) => { sfx('doorclose', { x: p.x, z: p.z }); sfx('grunt', { x: p.x, z: p.z }) })
+  events.on('parry-try', (p) => sfx('throw', { x: p.x, z: p.z }))
+  events.on('parry', ({ p }) => { sfx('ricochet', { x: p.x, z: p.z }); sfx('pin', { x: p.x, z: p.z }) })
+  events.on('enemy-broken', (e) => sfx('zstagger', { x: e.x, z: e.z }))
+}
+
+// faíscas: na frente do escudo (bloqueio e aparo) e clarão na arma de quem ajoelhou
+function WireFX(fx) {
+  const shield = (p, k) => [p.x + Math.sin(p.facing) * 0.55 * k, 1.25, p.z + Math.cos(p.facing) * 0.55 * k]
+  events.on('block', ({ p }) => fx.burst(...shield(p, 1), 0xffd38a, 5, 2.5, 0.3, 0.6))
+  events.on('guard-break', ({ p }) => fx.burst(...shield(p, 1), 0xc8a070, 10, 3, 0.5, 0.9))
+  events.on('parry', ({ p }) => { fx.burst(...shield(p, 1), 0xfff2c0, 14, 5, 0.45, 1); fx.flash(...shield(p, 1), 0.5, 0xfff2c0, 0.18) })
+  events.on('enemy-broken', (e) => fx.flash(e.x, 1.0, e.z, 0.7, 0xffe9a8, 0.35))
 }
 
 // rastro da lâmina: uma amostra por quadro enquanto ela machuca (ponta da espada e o meio do caminho até o peito)
@@ -105,12 +121,16 @@ export async function LoadGame() {
   const input = { players: game.players, setInput: game.setInput, act: game.act }
   BindKeyboard(input, BALANCE.keys)
   const help = document.getElementById('help')
-  const HELP = { keys: help.textContent, pad: 'Controle: stick anda · B: tocar rola, segurar corre · RB leve · RT pesado · R3 trava' }
+  const HELP = { keys: help.textContent, pad: 'Controle: stick anda · B: tocar rola, segurar corre · RB leve · RT pesado · LB escudo · LT apara · R3 trava' }
   const pad = BindGamepad(input, BALANCE.pad, (name) => {
     help.textContent = name ? HELP.pad : HELP.keys
     Note(name ? `Controle conectado: ${name}` : 'Controle desconectado')
   })
   events.on('hit', (d) => Impact(d.kind, camera, pad)) // golpe acertou: tremor (só o pesado) e vibração
+  events.on('hit', (d) => { if (d.kind === 'critical') camera.punch(BALANCE.juice.zoom.critical, BALANCE.juice.zoom.time) })
+  for (const k of ['block', 'parry', 'guard-break']) events.on(k, () => Impact(k === 'guard-break' ? 'guardBreak' : k, camera, pad))
+  const fx = CreateFX(scene)
+  WireFX(fx)
   events.on('hurt', (d) => Impact(d.strong ? 'hurtStrong' : 'hurt', camera, pad)) // levou golpe
   events.on('death', () => Note('A névoa te levou')) // a tela de morte de verdade chega no S8
   const hud = CreateHud(BALANCE.hud)
@@ -139,6 +159,7 @@ export async function LoadGame() {
     BodySounds(dt, list[0])
     SampleTrail(trail, list[0])
     trail.update(dt)
+    fx.update(dt)
     UpdateBuildings(list) // dentro de casa (ou atrás dela): o telhado some
     renderer.render(scene, camera.cam)
     Fps()

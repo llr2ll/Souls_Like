@@ -11,7 +11,7 @@ export function CreateCamera(aspect, tune) {
   const shakes = [] // tremores ativos: { power, time, t }
   const base = Math.hypot(tune.height - tune.lookY, tune.back) // distância normal (~13 m)
   const sinPitch = (tune.height - tune.lookY) / base
-  let first = true, zoom = 1
+  let first = true, zoom = 1, punch = 0, punchT = 0, punchTime = 1
 
   // quanto afastar para os pontos caberem na tela em volta do foco (fx, fz)
   function fit(fx, fz, pts) {
@@ -45,7 +45,10 @@ export function CreateCamera(aspect, tune) {
     focus.y += (y - focus.y) * k
     focus.z += (tz - focus.z) * k
     zoom += (wantZoom - zoom) * (1 - Math.exp(-tune.zoomFollow * dt))
-    cam.position.set(focus.x, focus.y + tune.lookY + (tune.height - tune.lookY) * zoom, focus.z + tune.back * zoom)
+    // aproximação rápida (golpe crítico): chega `punch` mais perto e volta em `punchTime`
+    punchT = Math.max(0, punchT - dt)
+    const z = zoom * (1 - punch * (punchT / punchTime) ** 2)
+    cam.position.set(focus.x, focus.y + tune.lookY + (tune.height - tune.lookY) * z, focus.z + tune.back * z)
     cam.lookAt(focus.x, focus.y + tune.lookY, focus.z)
 
     // tremor: soma dos tremores ativos, mais fraco no fim; a câmera só desliza (já olhou para o jogador)
@@ -68,6 +71,8 @@ export function CreateCamera(aspect, tune) {
     update,
     // power = deslocamento máximo (m); time = duração (s)
     shake(power, time) { if (power > 0 && time > 0) shakes.push({ power, time, t: 0 }) },
+    // aproxima amount (0,05 = 5%) e volta em time s
+    punch(amount, time) { punch = amount; punchT = punchTime = time },
     // inclinação da linha de visada (sobe tanto por metro em direção à câmera): o recorte das casas usa
     slope: (tune.height - tune.lookY) / tune.back,
     resize(aspect) { cam.aspect = aspect; cam.updateProjectionMatrix() },

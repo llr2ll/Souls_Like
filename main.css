@@ -17,3 +17,5 @@ html, body { height: 100%; margin: 0; background: #15120f; overflow: hidden; fon
 .stamina.tired i { background: linear-gradient(#5a6f4e, #34432c) }
 #target-bar { display: none; position: absolute; width: 70px; height: 5px; margin-left: -35px; background: #000a; border: 1px solid #000c }
 #target-bar .fill { display: block; height: 100%; background: #c9452f }
+#target-bar .posture { position: absolute; left: 50%; top: 8px; height: 3px; transform: translateX(-50%); background: #f0c45a; box-shadow: 0 0 3px #000 }
+#target-bar .posture.broken { background: #fff3c4; box-shadow: 0 0 6px #ffd76a }

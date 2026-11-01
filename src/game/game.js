@@ -9,10 +9,11 @@ import { BALANCE } from './config/balance'
 
 // Estado e regras do jogo (sem desenhar: o replay do npm run check roda isto sem navegador).
 // S2: fôlego, correr e rolar. S3: golpe leve (combo de 3) e pesado contra bonecos de treino. S4: travar no alvo.
-// S5: inimigos (Romeiro perdido), levar golpe, morrer e voltar ao começo.
+// S5: inimigos (Romeiro perdido), levar golpe, morrer e voltar ao começo. S6: escudo, aparar, postura e golpe crítico.
 // Avisos (engine/core/events.js) para o main.js tocar som e tremer: 'roll', 'roll-land', 'swing' (lâmina começou a cortar),
 // 'hit' (golpe acertou: { by, target, kind }), 'lock' (travou, trocou ou soltou: { p, target }),
 // 'hurt' (jogador levou golpe: { p, dmg, strong }), 'death' (jogador morreu), 'respawn'. Os inimigos avisam 'enemy-*' (enemies/enemy.js).
+// S6: 'block' (o escudo segurou), 'guard-break' (fôlego zerou segurando), 'parry-try' (começou a aparar), 'parry' (aparou).
 const DEG = Math.PI / 180
 const wrap = (a) => { a = (a + Math.PI) % (Math.PI * 2); if (a < 0) a += Math.PI * 2; return a - Math.PI }
 const KINDS = { romeiro: CreateRomeiro }
@@ -21,16 +22,18 @@ const PLAYER_R = 0.45
 export function CreateGame(scene) {
   const players = new Map()
   const PL = BALANCE.player, R = BALANCE.roll, AT = BALANCE.attack, LK = BALANCE.lock, HU = BALANCE.hurt
+  const GU = BALANCE.guard, PA = BALANCE.parry, CR = BALANCE.critical
   const dummies = BALANCE.dummies.map((d) => CreateDummy(scene, d.x, d.z))
   const enemies = []
   const targets = [...dummies] // o que pode levar golpe: bonecos e inimigos
   let stopT = 0 // pausa no impacto: o jogo fica parado enquanto > 0
+  let slowT = 0 // aparo certo: tudo fica lento enquanto > 0
   // velocidade no começo do rolamento: ela cai em curva (cosseno) até parar no fim, andando R.distance
   const rollPeak = () => (Math.PI * R.distance) / (2 * R.time)
 
   function addPlayer(id, name) {
     if (players.has(id)) return
-    const model = CreatePlayerModel(PL.look)
+    const model = CreatePlayerModel(PL.look, { shield: true })
     scene.add(model.root)
     players.set(id, {
       id, name, model, x: PL.start.x, z: PL.start.z, vx: 0, vz: 0, aimAngle: Math.PI, facing: Math.PI, turn: 0, speed: 0,
@@ -44,6 +47,7 @@ export function CreateGame(scene) {
       atk: null, comboN: 0, comboT: 0, // golpe em andamento; próximo leve do combo e quanto tempo ele ainda emenda
       lock: null, lockLost: 0, // alvo travado; há quanto tempo não o vê
       hurtT: 0, kbx: 0, kbz: 0, deadT: 0, // tropeço (tempo e empurrão); morto há quanto tempo
+      guard: false, parryT: -1, stunT: 0, // escudo erguido agora; aparando há quanto tempo; aberto (guarda quebrada, aparo errado)
     })
   }
   // inimigos: o jogo (main.js) põe os da arena; o replay põe na hora da cena dele
@@ -73,11 +77,11 @@ export function CreateGame(scene) {
     p.queue = { what, t: roll ? R.buffer : AT.buffer, a: !roll && p.lock ? toward(p, p.lock) : stick(p) }
   }
   // ações: 'roll' rola, 'light' e 'heavy' atacam (o teclado e o controle rolam soltando o botão de correr cedo; ver update),
-  // 'lock' trava/solta, 'lock-next' / 'lock-prev' trocam para o alvo à direita / à esquerda na tela
+  // 'parry' apara, 'lock' trava/solta, 'lock-next' / 'lock-prev' trocam para o alvo à direita / à esquerda na tela
   function act(id, a) {
     const p = players.get(id)
     if (!p) return
-    if (a === 'roll' || a === 'light' || a === 'heavy') queue(p, a)
+    if (a === 'roll' || a === 'light' || a === 'heavy' || a === 'parry') queue(p, a)
     else if (a === 'lock') p.lock ? setLock(p, null) : setLock(p, pickLock(p))
     else if ((a === 'lock-next' || a === 'lock-prev') && p.lock) setLock(p, nextLock(p, a === 'lock-next' ? 1 : -1) || p.lock)
   }
@@ -130,14 +134,35 @@ export function CreateGame(scene) {
   const rolling = (p) => p.rollT >= 0
   const spend = (p, n) => { p.stamina = Math.max(0, p.stamina - n); p.restT = 0 } // qualquer fôlego acima de 0 basta; ele zera
   // rolar: não rolando e, se atacando, só depois do impacto (o rolamento é o único que cancela um golpe)
-  const free = (p) => !p.dead && p.hurtT <= 0 // tropeçando ou morto não age
+  // tropeçando, atordoado, aparando ou morto não age
+  const free = (p) => !p.dead && p.hurtT <= 0 && p.stunT <= 0 && p.parryT < 0
   const canRoll = (p) => free(p) && !rolling(p) && p.stamina > 0 && (!p.atk || p.atk.t >= p.atk.def.hit[1])
   const canAttack = (p) => free(p) && !rolling(p) && !p.atk && p.stamina > 0
 
   // ---- levar golpe ----
-  // devolve true se acertou (rolando invulnerável ou morto: não acerta)
+  // dir = direção do golpe (de quem bate para o jogador). Devolve o que aconteceu: false (não acertou: rolando ou morto),
+  // 'parry' (aparou: o inimigo perde a postura), 'block' (o escudo segurou) ou 'hit'
+  const facesIt = (p, dir, arc) => Math.abs(wrap(dir + Math.PI - p.facing)) <= arc * DEG // de frente para quem bate?
   function hurtPlayer(p, dmg, dir, by, strong) {
     if (p.dead || p.safe) return false
+    if (p.parryT >= 0 && p.parryT <= PA.window && facesIt(p, dir, GU.arc)) {
+      p.parryT = -1 // aparou: volta a agir na hora
+      slowT = PA.slow
+      events.emit('parry', { p, by })
+      return 'parry'
+    }
+    if (p.guard && facesIt(p, dir, GU.arc)) {
+      p.stamina -= dmg * GU.cost; p.restT = 0
+      p.kbx = Math.sin(dir) * GU.push; p.kbz = Math.cos(dir) * GU.push
+      if (p.stamina <= 0) {
+        // guarda quebrada: atordoado e aberto a tudo
+        p.stamina = 0; p.guard = false; p.stunT = GU.broken
+        p.model.play('stagger', 0.05)
+        events.emit('guard-break', { p, by })
+      } else events.emit('block', { p, by })
+      return 'block'
+    }
+    p.parryT = -1; p.stunT = 0
     p.hp = Math.max(0, p.hp - dmg)
     // tropeço: perde o golpe/rolamento em andamento e é empurrado para trás
     p.atk = null; p.rollT = -1; p.safe = false; p.comboN = 0
@@ -150,11 +175,12 @@ export function CreateGame(scene) {
       p.model.die()
       events.emit('death', p)
     }
-    return true
+    return 'hit'
   }
   // voltar ao começo (o cruceiro chega no S8): vida e fôlego cheios, inimigos de volta ao lugar
   function respawn(p) {
-    Object.assign(p, { x: PL.start.x, z: PL.start.z, vx: 0, vz: 0, facing: Math.PI, hp: p.max, stamina: p.staminaMax, dead: false, deadT: 0, tired: false })
+    Object.assign(p, { x: PL.start.x, z: PL.start.z, vx: 0, vz: 0, facing: Math.PI, hp: p.max, stamina: p.staminaMax, dead: false, deadT: 0, tired: false,
+      atk: null, rollT: -1, queue: null, hurtT: 0, stunT: 0, parryT: -1, kbx: 0, kbz: 0, dashT: 0, safe: false })
     for (const e of enemies) e.reset()
     events.emit('respawn', p)
   }
@@ -167,18 +193,42 @@ export function CreateGame(scene) {
     p.model.play('roll', R.time)
     events.emit('roll', p)
   }
+  // inimigo de joelhos perto e na frente: o golpe leve vira crítico nele
+  function kneeling(p) {
+    for (const e of enemies) {
+      if (e.state !== 'broken' || e.dead || e.riposting) continue
+      const d = Math.hypot(e.x - p.x, e.z - p.z) - e.r
+      if (d <= CR.range && Math.abs(wrap(toward(p, e) - p.facing)) <= CR.arc * DEG) return e
+    }
+    return null
+  }
   function startAttack(p, kind, a) {
+    const victim = kind === 'light' && kneeling(p)
+    if (victim) {
+      // crítico: 3× o dano do leve, só nele, invulnerável a animação toda (DESIGN 3.4)
+      const def = { ...CR, dmg: AT.light[0].dmg * CR.mult, posture: 0, stamina: 0 }
+      p.atk = { kind: 'critical', n: 0, def, t: 0, a: toward(p, victim), hit: new Set(), swung: false, victim }
+      victim.riposted(CR.time)
+      p.model.play(def.anim, def.time)
+      return
+    }
     const n = kind === 'light' ? (p.comboT > 0 ? p.comboN : 0) : 0
     const def = kind === 'light' ? AT.light[n] : AT.heavy
     p.atk = { kind, n, def, t: 0, a, hit: new Set(), swung: false }
     spend(p, def.stamina)
     p.model.play(def.anim, def.time)
   }
-  // lâmina cortando: acerta cada alvo uma vez por golpe, se estiver no alcance e dentro da abertura
+  function startParry(p) {
+    spend(p, PA.stamina)
+    p.parryT = 0
+    p.model.play('parry', PA.window + PA.miss)
+    events.emit('parry-try', p)
+  }
+  // lâmina cortando: acerta cada alvo uma vez por golpe, se estiver no alcance e dentro da abertura (o crítico: só a vítima)
   function strike(p, A) {
     const d = A.def
     for (const e of targets) {
-      if (A.hit.has(e) || e.dead) continue
+      if (A.hit.has(e) || e.dead || (A.victim && e !== A.victim)) continue
       const dx = e.x - p.x, dz = e.z - p.z
       if (Math.hypot(dx, dz) - e.r > d.range) continue
       const dir = Math.atan2(dx, dz)
@@ -203,11 +253,18 @@ export function CreateGame(scene) {
     // ação guardada: sai assim que der; senão perde a validade
     const q = p.queue
     if (q) {
-      if (q.what === 'roll' ? canRoll(p) : canAttack(p)) { p.queue = null; q.what === 'roll' ? startRoll(p, q.a) : startAttack(p, q.what, q.a) }
-      else if ((q.t -= dt) <= 0) p.queue = null
+      if (q.what === 'roll' ? canRoll(p) : canAttack(p)) {
+        p.queue = null
+        if (q.what === 'roll') startRoll(p, q.a)
+        else if (q.what === 'parry') startParry(p)
+        else startAttack(p, q.what, q.a)
+      } else if ((q.t -= dt) <= 0) p.queue = null
     }
-    // rolando ou atacando, o corpo segue o roteiro (a "investida" do movimento copiado: dashT/dashA/dashV)
-    const roll = rolling(p), A = p.atk, hurt = p.hurtT > 0
+    // aparando: a janela e depois o tempo aberto (errou); atordoado: só espera
+    if (p.parryT >= 0 && (p.parryT += dt) >= PA.window + PA.miss) p.parryT = -1
+    if (p.stunT > 0) p.stunT -= dt
+    // rolando, atacando, tropeçando ou atordoado, o corpo segue o roteiro (a "investida" do movimento copiado: dashT/dashA/dashV)
+    const roll = rolling(p), A = p.atk, hurt = p.hurtT > 0, stuck = p.stunT > 0 || p.parryT >= 0
     if (hurt) {
       // tropeço: empurrado para trás, perdendo força até parar
       const k = p.hurtT / HU.stagger
@@ -220,15 +277,29 @@ export function CreateGame(scene) {
     } else if (A) {
       const step = A.def.hit[0] + 0.04 // o passo à frente acaba logo depois de a lâmina começar a cortar
       p.dashT = 1; p.dashA = A.a; p.dashV = A.t < step ? A.def.lunge / step : 0
-    }
+      p.safe = A.kind === 'critical' // o crítico é invulnerável do começo ao fim
+    } else if (stuck) {
+      // parado no lugar; o empurrão do escudo (guarda quebrada) ainda escorrega um pouco
+      p.dashT = 1; p.dashA = Math.atan2(p.kbx, p.kbz); p.dashV = 0
+    } else if (p.dashT > 0) p.dashT = 0
     if (roll || A) p.restT = 0 // rolando ou atacando o fôlego não volta: a espera de 0,5 s conta do fim da ação
+    // escudo: segurando o botão e livre (rolar, golpear e correr baixam o escudo)
+    p.guard = !!p.raw.guard && free(p) && !roll && !A && p.dodgeT < R.tap
+    // segurou um golpe no escudo: escorrega para trás um instante
+    const shoved = Math.hypot(p.kbx, p.kbz)
+    if (p.guard && shoved > 0.05 && !hurt) { p.dashT = 1; p.dashA = Math.atan2(p.kbx, p.kbz); p.dashV = shoved; p.kbx *= 0.85; p.kbz *= 0.85 }
+    else if (!hurt && !stuck) { p.kbx = p.kbz = 0; if (!roll && !A) p.dashT = 0 }
     updateLock(p, dt)
     Object.assign(p.input, p.raw)
-    p.input.run = !roll && !A && !hurt && p.dodgeT >= R.tap ? 1 : 0
+    p.input.run = !roll && !A && !hurt && !stuck && !p.guard && p.dodgeT >= R.tap ? 1 : 0
     // travado e sem correr: anda de frente para o alvo (de lado, de costas). O movimento copiado chama isso de "mirar"
     // (rolando, atacando ou tropeçando, o corpo segue a ação)
     if (p.lock && !p.input.run && !roll && !A && !hurt) { const a = toward(p, p.lock); p.input.ax = Math.sin(a); p.input.az = Math.cos(a) }
+    // de escudo erguido anda mais devagar (o movimento copiado multiplica a velocidade por slowAct)
+    p.slowAct = p.guard ? GU.speed / (p.input.ax || p.input.az ? BALANCE.move.aim : BALANCE.move.walk) : 1
+    const before = p.stamina
     UpdatePlayerMovement(p, dt, null, BALANCE.move)
+    if (p.guard && p.stamina > before) p.stamina = before + (p.stamina - before) * GU.regen // escudo erguido: fôlego volta mais devagar
 
     if (hurt) {
       // nada: o tropeço já andou acima
@@ -242,7 +313,7 @@ export function CreateGame(scene) {
       if (t1 >= d.hit[0] && A.t <= d.hit[1]) strike(p, A)
       A.t = t1
       if (A.t >= d.time) {
-        p.atk = null; p.dashT = 0
+        p.atk = null; p.dashT = 0; p.safe = false
         p.comboN = A.kind === 'light' ? (A.n + 1) % AT.light.length : 0
         p.comboT = A.kind === 'light' ? AT.combo : 0
       }
@@ -264,6 +335,7 @@ export function CreateGame(scene) {
 
   function update(dt) {
     if (stopT > 0) { stopT -= dt; return } // pausa no impacto: tudo parado (o desenho continua)
+    if (slowT > 0) { slowT -= dt; dt *= PA.slowScale } // aparo certo: tudo lento um instante
     for (const p of players.values()) updatePlayer(p, dt)
     for (const e of targets) e.update(dt)
     separate()

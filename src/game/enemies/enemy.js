@@ -1,17 +1,23 @@
 import { resolve } from '../../engine/world/collision'
 import { events } from '../../engine/core/events'
+import { BALANCE } from '../config/balance'
 
 // Inimigo genérico (DESIGN 3.5 e 5): parado → vê o jogador → geme → aproxima → AVISA → golpeia → recua (janela para punir)
 // → espera → ... Levou golpe fora do ataque: tropeça. Longe demais de casa ou o jogador sumiu: volta para casa.
 // Regras de justiça: aviso de no mínimo 0,4 s; no aviso gira no máximo `warnTurn` graus/s; no golpe não gira;
 // golpe não atravessa parede (ctx.sees).
-// spec = { kind, tune (números do balance), build() → modelo, choose(e, dist) → nome do ataque, pose(e, A) → pose do corpo }
-// ctx = { players, sees(a, b), hurt(p, dmg, dir, by, strong) → acertou? }
-// Avisos: 'enemy-alert', 'enemy-warn' ({ e, name }), 'enemy-swing', 'enemy-stagger', 'enemy-death'.
+// Postura (DESIGN 3.4): cada golpe enche; esvazia sozinha depois de um tempo sem levar golpe; cheia (ou aparo certo) = de joelhos
+// por `tune.broken` s, arma brilhando, aceitando o golpe crítico.
+// spec = { kind, tune (números do balance), build() → modelo, choose(e, dist) → nome do ataque, pose(e, A) → pose do corpo,
+//          glow(model, ligado) → a arma brilha (de joelhos) }
+// ctx = { players, sees(a, b), hurt(p, dmg, dir, by, strong) → false | 'hit' | 'block' | 'parry' }
+// Avisos: 'enemy-alert', 'enemy-warn' ({ e, name }), 'enemy-swing', 'enemy-stagger', 'enemy-broken', 'enemy-death'.
 const DEG = Math.PI / 180
 const wrap = (a) => { a = (a + Math.PI) % (Math.PI * 2); if (a < 0) a += Math.PI * 2; return a - Math.PI }
 const turnTo = (a, b, rate, dt) => { const d = wrap(b - a); return a + Math.sign(d) * Math.min(Math.abs(d), rate * dt) }
 const PLAYER_R = 0.45
+// de joelhos: braços caídos, tronco curvado (o modelo ajoelha com o estado 'feed' do zumbi)
+const BROKEN_POSE = { armR: [0.35, -0.25], armL: [0.35, 0.25], spineX: 0.75, spineY: 0 }
 
 export function CreateEnemy(scene, spec, x, z, ry, ctx) {
   const T = spec.tune
@@ -21,6 +27,7 @@ export function CreateEnemy(scene, spec, x, z, ry, ctx) {
     id: `${spec.kind}-${x},${z}`, kind: spec.kind, x, z, y: 0, r: T.r, facing: ry, home: { x, z, ry },
     hp: T.hp, maxHp: T.hp, posture: 0, maxPosture: T.posture, dead: false, model,
     state: 'idle', stT: 0, vel: 0, hitT: 0, fallDir: -1, pose: null, poseW: 0, waitT: 0, target: null,
+    postureT: 0, brokenT: 0, // tempo sem levar golpe (a postura só esvazia depois de um tempo); quanto tempo fica de joelhos
     atk: null, // { name, def, phase: 'warn' | 'strike' | 'gap' | 'recover', i: golpe atual, t, a: direção travada, hit }
     group: model.root, radius: T.r, dying: 0, // nomes que a sombra falsa do motor espera (engine/render/entity-shadows.js)
   }
@@ -66,7 +73,9 @@ export function CreateEnemy(scene, spec, x, z, ry, ctx) {
       if (d.lunge) { e.x += Math.sin(A.a) * (d.lunge / d.hits[A.i]) * dt; e.z += Math.cos(A.a) * (d.lunge / d.hits[A.i]) * dt; resolve(e, e.r, null, 0) }
       if (!A.hit) for (const q of ctx.players.values()) {
         if (q.dead || dist(q) - PLAYER_R > d.range || Math.abs(wrap(angTo(q) - A.a)) > d.arc * DEG || !ctx.sees(e, q)) continue
-        if (ctx.hurt(q, d.dmg, A.a, e, !!d.strong)) A.hit = true
+        const r = ctx.hurt(q, d.dmg, angTo(q), e, !!d.strong)
+        if (r) A.hit = true
+        if (r === 'parry') { parried(); return }
       }
       if (A.t >= d.hits[A.i]) {
         A.i++; A.t = 0; A.hit = false
@@ -109,6 +118,10 @@ export function CreateEnemy(scene, spec, x, z, ry, ctx) {
       case 'stagger':
         if (e.stT >= T.stagger) set(lost() ? 'return' : 'approach')
         break
+      case 'broken':
+        // de joelhos: quando o tempo acaba, levanta com a postura zerada
+        if (e.stT >= e.brokenT) { e.posture = 0; e.riposting = false; spec.glow(model, false); set(lost() ? 'return' : 'approach') }
+        break
       case 'return':
         if (Math.hypot(e.x - e.home.x, e.z - e.home.z) < 0.4) { e.facing = e.home.ry; e.target = null; set('idle'); break }
         walk(e.home.x, e.home.z, dt, T.walk)
@@ -120,16 +133,38 @@ export function CreateEnemy(scene, spec, x, z, ry, ctx) {
         model.root.visible = e.stT < T.sink + 2.5
         break
     }
+    // postura esvazia sozinha depois de um tempo sem levar golpe (de joelhos, não)
+    if (e.state !== 'broken' && (e.postureT += dt) > BALANCE.posture.delay) e.posture = Math.max(0, e.posture - BALANCE.posture.regen * dt)
     // pose do corpo: entra rápido no ataque, sai devagar
+    const posed = e.atk || e.state === 'broken'
     if (e.atk) e.pose = spec.pose(e, e.atk)
-    e.poseW += ((e.atk ? 1 : 0) - e.poseW) * (1 - Math.exp(-(e.atk ? 18 : 6) * dt))
+    else if (e.state === 'broken') e.pose = BROKEN_POSE
+    e.poseW += ((posed ? 1 : 0) - e.poseW) * (1 - Math.exp(-(posed ? 18 : 6) * dt))
     model.root.position.set(e.x, e.y, e.z)
     model.root.rotation.y = e.facing
-    model.animate(dt, { state: e.state === 'dead' ? 'dead' : e.state === 'stagger' ? 'stagger' : 'idle', vel: e.vel, hitT: e.hitT, stT: e.stT, fallDir: e.fallDir, pose: e.pose, poseW: e.poseW })
+    const anim = { dead: 'dead', stagger: 'stagger', broken: 'feed' }[e.state] || 'idle' // 'feed' = o zumbi ajoelhado
+    model.animate(dt, { state: anim, vel: e.vel, hitT: e.hitT, stT: e.stT, fallDir: e.fallDir, pose: e.pose, poseW: e.poseW })
   }
 
+  // postura cheia: de joelhos, arma brilhando, aberto ao golpe crítico
+  function breakPosture() {
+    e.atk = null; e.posture = e.maxPosture; e.brokenT = T.broken
+    set('broken')
+    spec.glow(model, true)
+    events.emit('enemy-broken', e)
+  }
+  // o jogador aparou o golpe: a postura enche (comum: quebra na hora)
+  function parried() {
+    e.atk = null
+    e.posture += e.maxPosture * T.parryBreak; e.postureT = 0
+    if (e.posture >= e.maxPosture) breakPosture()
+    else { set('stagger'); events.emit('enemy-stagger', e) }
+  }
+  // golpe crítico começou: fica de joelhos até a animação dele acabar e então levanta (um crítico por joelho)
+  e.riposted = (t) => { e.brokenT = e.stT + t; e.riposting = true }
+
   // levou golpe do jogador
-  e.hit = ({ dmg, dir }) => {
+  e.hit = ({ dmg, posture = 0, dir }) => {
     if (e.dead) return
     e.hp -= dmg
     e.hitT = 0.3
@@ -137,18 +172,23 @@ export function CreateEnemy(scene, spec, x, z, ry, ctx) {
     if (e.hp <= 0) {
       e.hp = 0; e.dead = true; e.atk = null; e.dying = 1
       e.fallDir = Math.abs(wrap(dir - e.facing)) > Math.PI / 2 ? -1 : 1 // golpe de frente: cai de costas
+      spec.glow(model, false)
       set('dead')
       events.emit('enemy-death', e)
       return
     }
     if (!e.target) for (const p of ctx.players.values()) { e.target = p; break }
+    if (e.state === 'broken') return // de joelhos: só toma o dano
+    e.posture += posture; e.postureT = 0
+    if (e.posture >= e.maxPosture) { breakPosture(); return }
     // no aviso e no golpe ele não para (não dá para trocar golpe com ele); fora disso, tropeça
     if (!e.atk || e.atk.phase === 'recover') { e.atk = null; set('stagger'); events.emit('enemy-stagger', e) }
   }
   e.update = update
   // volta ao começo (o jogador morreu e voltou: os inimigos renascem)
   e.reset = () => {
-    Object.assign(e, { x: e.home.x, z: e.home.z, y: 0, facing: e.home.ry, hp: T.hp, posture: 0, dead: false, dying: 0, atk: null, target: null, poseW: 0, hitT: 0 })
+    Object.assign(e, { x: e.home.x, z: e.home.z, y: 0, facing: e.home.ry, hp: T.hp, posture: 0, dead: false, dying: 0, atk: null, target: null, poseW: 0, hitT: 0, riposting: false })
+    spec.glow(model, false)
     set('idle')
     model.root.visible = true
   }
