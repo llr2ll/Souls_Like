@@ -43,6 +43,8 @@ npm run build    # gera dist/ (para hospedar)
      (solta), tenta travar longe (nada), trava e se esconde atrás da casa (solta em 2 s). O hash guarda a sequência de travadas.
      S5 (118–140 s) "jogador robô" contra um Romeiro: rola na diagonal no fim de cada aviso e pune na janela, até matá-lo
      (sem levar golpe: prova que rolar sempre funciona). Depois outro Romeiro, o robô parado com pouca vida morre e volta ao começo.
+     S6 (140–167 s) escudo segura golpes; aparo no fim do aviso → joelhos → crítico (só um por joelho); combo quebra a postura →
+     crítico; fôlego baixo segurando → guarda quebrada. O hash conta bloqueios, aparos, guardas quebradas, joelhos e críticos.
      **PR de organização tem de dar igual.** PR que muda a jogabilidade de propósito: `npm run check -- --update-sim` e dizer isso na descrição.
      Cada PR de jogabilidade acrescenta a sua cena ao roteiro. `SIM_TRACE=arquivo node scripts/sim.mjs` grava o rastro quadro a quadro.
 - `npm run smoke` — teste automático (~1 min). Compila, sobe a página na porta **5199**, abre no Chromium sem tela, anda com o teclado,
@@ -99,15 +101,18 @@ src/game/                 este jogo
   `hit` ({ by, target, kind: `light` | `heavy` }) → som + `Impact(kind)` em `main.js`: tremor de tela (só pesado) + vibração (`BALANCE.juice`).
   `swing` (a lâmina começou a cortar) → assobio. A pausa no impacto é do `game.js` (`stopT`: o `update` não roda; o desenho continua).
   `hurt` ({ p, dmg, strong }) → som + `Impact('hurt' | 'hurtStrong')`; `death` → som + aviso "A névoa te levou"; `respawn`.
+  `block`, `guard-break`, `parry-try`, `parry` → sons, faíscas (`shared/fx/effects.js`), vibração. `enemy-broken` → clarão.
+  Golpe `critical` → aproximação de 5% da câmera (`camera.punch`). Aparo certo deixa o jogo lento por 0,12 s (`slowT` no `game.js`).
   Inimigos: `enemy-alert` (gemido), `enemy-warn` ({ e, name }: som próprio de cada golpe), `enemy-swing`, `enemy-stagger`, `enemy-death`.
   `roll` e `roll-land` (o jogo avisa; `main.js` toca o impulso e o baque). Passos e respiração ofegante: `BodySounds()` em `main.js`.
 - Peças de `shared` recebem os números como parâmetro: `UpdatePlayerMovement(p, dt, colliders, BALANCE.move)`.
 
 ## Contrato de input (proteger)
 Copiado do survivor. **Só ganha coisas, nunca muda** (para o co-op pelo celular funcionar depois).
-- `game.setInput(id, { mx, mz, ax, az, run, fire })` — mover (-1..1), mirar (-1..1), correr 0/1, `fire` só no mouse.
-- `game.act(id, ação)` — fazem efeito: `roll` (S2), `light`, `heavy` (S3), `lock`, `lock-next`, `lock-prev` (S4).
-  Planejadas (DESIGN 3.7): `parry`, `heal`
+- `game.setInput(id, { mx, mz, ax, az, run, fire, guard })` — mover (-1..1), mirar (-1..1), correr 0/1, `fire` só no mouse,
+  `guard` 0/1 = escudo erguido (acrescentado no S6, em `engine/input/contract.js`).
+- `game.act(id, ação)` — fazem efeito: `roll` (S2), `light`, `heavy` (S3), `lock`, `lock-next`, `lock-prev` (S4), `parry` (S6).
+  Planejada (DESIGN 3.7): `heal`
   (`use` e `swap` já existem). Bloquear (`guard`) é de segurar: entra como campo novo no `setInput`.
 - `run` = **botão de rolar/correr segurado**. O jogo decide (`game.js`): soltar antes de `BALANCE.roll.tap` (0,25 s) rola; segurar mais corre.
   O jogo guarda o que chegou em `p.raw` e monta `p.input` (o que o movimento copiado recebe).
@@ -175,6 +180,16 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
 - Jogador levou golpe: perde o golpe/rolamento em andamento, tropeça 0,35 s empurrado para trás (não age; ações apertadas ficam na
   fila). Morreu: cai, e em 3,5 s volta ao começo com vida cheia; os inimigos renascem (provisório: o cruceiro e a cera chegam no S8).
 - Corpos não se atravessam (`separate()` em `game.js`: jogador e inimigos vivos se empurram).
+- Escudo (`p.guard`): só vale de frente (±`guard.arc`); segurar gasta fôlego = dano × 1,5; zerou = guarda quebrada (`p.stunT`, 1 s
+  sem agir). Anda a 2,4 m/s (via `p.slowAct`, que o movimento copiado já multiplicava). Fôlego volta a 40% (o jogo corta o que o
+  movimento recuperou). Rolar, golpear e correr baixam o escudo. O peregrino carrega a rodela no braço esquerdo: a espada é de uma mão.
+- `hurtPlayer` devolve `false` (não acertou), `'parry'`, `'block'` ou `'hit'`; o inimigo reage ao `'parry'` (`parried()`).
+- Aparo (`p.parryT`): janela de 0,18 s a partir do aperto; errou, fica aberto 0,5 s. Aparo certo: postura do inimigo enche
+  (`tune.parryBreak`: comum 1 = quebra na hora).
+- Postura (`e.posture`): enche com o `posture` de cada golpe; esvazia 10/s depois de 1,5 s sem levar golpe. Cheia: estado `broken`
+  (de joelhos = estado `feed` do zumbi + pose de braços caídos; arma brilha via `spec.glow`) por `tune.broken` s.
+- Crítico: golpe leve com um inimigo `broken` a até 2 m e na frente vira `critical` (3× o leve, só nele, invulnerável a animação toda,
+  `riposte` no kit). Um crítico por joelho (`e.riposting`): depois dele o inimigo levanta.
 - O 3º leve é uma estocada nova no kit do Samurai (`thrust`); o pesado também é novo (`heavy`). O rastro (`fx/trail.js`) usa a ponta
   da espada (`model.muzzle`) e o meio do caminho até o peito.
 - `npm run check` roda no Windows também (o `sim.mjs` usa `pathToFileURL`).
@@ -205,3 +220,6 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
   cortes (aviso 0,45 s, rosnado), janela de punir, tropeço, morte (afunda no chão), volta para casa. Jogador leva golpe (tropeço,
   empurrão, som, tremor, vibração), morre e volta ao começo. Barra de vida (com o pedaço perdido) e barra de vida sobre o alvo travado.
   `zombie-model.js` ganhou pose vinda do jogo e mãos para armas. Um Romeiro na arena em (-8, 13).
+- **s6-bloquear-aparar (S6)** — escudo (clique direito/LB: segura de frente, gasta fôlego, guarda quebrada), aparo (Shift+direito/LT:
+  janela 0,18 s, faísca, "tlin", câmera lenta), postura (barra dourada sob a vida do alvo), de joelhos com a arma brilhando, golpe
+  crítico (36, invulnerável, aproximação da câmera). Contrato ganhou `guard`. Rodela no braço esquerdo (`player.js`), `riposte` no kit.

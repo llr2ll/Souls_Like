@@ -14,13 +14,16 @@
 // S5 (118–140 s): um Romeiro aparece; um "jogador robô" trava nele, rola para o lado no fim de cada aviso e bate 2 vezes
 // na janela de punir, até matá-lo. Depois outro Romeiro aparece, o robô fica parado com pouca vida, apanha, morre e volta
 // ao começo (os inimigos renascem). O hash conta golpes levados, mortes e o estado de cada inimigo.
+// S6 (140–167 s): outro Romeiro perto do começo. O robô segura golpes no escudo; apara no fim do aviso (ele ajoelha) e dá o
+// crítico; pune com o combo de 3 até a postura quebrar e dá outro crítico; com pouco fôlego segura uma pancada (guarda quebrada).
+// O hash conta bloqueios, aparos, guardas quebradas, joelhos e críticos.
 // Cada PR que cria jogabilidade acrescenta a sua cena ao roteiro.
 // Rode sempre em processo novo (node scripts/sim.mjs): o Three.js e o Vite guardam estado entre rodadas.
 // SIM_TRACE=arquivo grava um rastro quadro a quadro (para achar onde dois replays se separam).
 // (Mecanismo copiado do survivor e4314ee; o roteiro é deste jogo.)
 import { createHash } from 'node:crypto'
 
-export async function SimFingerprint(vite, frames = 4220) {
+export async function SimFingerprint(vite, frames = 5020) {
   // o motor de áudio registra teclas ao carregar; fora do navegador isso não existe
   globalThis.addEventListener ??= () => {}
   // sorteio e relógio fixos
@@ -57,8 +60,14 @@ export async function SimFingerprint(vite, frames = 4220) {
     events.on('hurt', () => hurts++)
     events.on('death', () => deaths++)
     events.on('enemy-death', () => kills++)
+    const s6 = { block: 0, parry: 0, guardBreak: 0, broken: 0, critical: 0 }
+    events.on('block', () => s6.block++)
+    events.on('parry', () => s6.parry++)
+    events.on('guard-break', () => s6.guardBreak++)
+    events.on('enemy-broken', () => s6.broken++)
+    events.on('hit', ({ kind }) => { if (kind === 'critical') s6.critical++ })
     // robô do S5: estado da luta
-    const bot = { atk: null, rolled: false, punches: 0 }
+    const bot = { atk: null, rolled: false, punches: 0, parried: null }
 
     const scene = new THREE.Scene()
     SetGround(() => 0); SetDeepTest(TooDeep)
@@ -80,7 +89,34 @@ export async function SimFingerprint(vite, frames = 4220) {
     for (let f = 0; f < frames; f++) {
       now += dt * 1000
       let mx, mz, run = 0
-      if (f >= 3560) {
+      if (f >= 4220) {
+        // S6: A (escudo) até 4420 · B (aparo + crítico) até 4620 · C (combo quebra a postura + crítico) até 4800 · D (guarda quebrada)
+        if (f === 4220) game.spawn('romeiro', -2, 9.5, Math.PI / 2)
+        if (f === 4620) game.spawn('romeiro', p.x + 3, p.z + 3, Math.PI) // C: um novo (o anterior morreu)
+        if (f === 4800) game.spawn('romeiro', p.x - 3, p.z + 2, Math.PI) // D: outro
+        const e = game.enemies[f < 4620 ? 2 : f < 4800 ? 3 : 4], A = e.atk
+        const ax = e.x - p.x, az = e.z - p.z, l = Math.hypot(ax, az) || 1
+        // D: fôlego baixo bem no aviso, para o golpe quebrar a guarda
+        if (f >= 4800 && A && A.phase === 'warn' && bot.low !== A) { bot.low = A; p.stamina = 10 }
+        let pr = null, guard = 0
+        ;[mx, mz] = [0, 0]
+        // trava no Romeiro (o stick aponta para ele no aperto); se estiver travado em outra coisa, solta antes
+        if (p.lock && p.lock !== e) pr = 'lock'
+        else if (!p.lock && !e.dead && l < 12) { pr = 'lock'; [mx, mz] = [ax / l, az / l] }
+        if (f < 4420 || f >= 4800) guard = 1
+        else if (f < 4620) {
+          if (A && A.phase === 'warn' && A.t > A.def.warn - 0.06 && bot.parried !== A) { bot.parried = A; pr = 'parry' }
+          else if (e.state === 'broken' && !p.atk) pr = 'light'
+          else if (!A && l > 2.2 && e.state !== 'broken') [mx, mz] = [ax / l, az / l]
+        } else {
+          if (e.state === 'broken' && !p.atk) pr = 'light'
+          else if ((!A || A.phase === 'recover') && l < 2.6 && f % 6 === 0) pr = 'light'
+          else if (A && A.phase === 'warn' && A.t > A.def.warn - 0.2 && !p.atk && bot.atk !== A) { bot.atk = A; pr = 'roll'; [mx, mz] = [(-az + ax * 0.8) / l, (ax + az * 0.8) / l] }
+          else if (!A && l > 2.4) [mx, mz] = [ax / l, az / l]
+        }
+        game.setInput('local', { mx, mz, ax: 0, az: 0, run: 0, guard })
+        if (pr) game.act('local', pr)
+      } else if (f >= 3560) {
         // S5: o robô
         if (f === 3560) game.spawn('romeiro', 2.5, -12, -Math.PI / 2)
         if (f === 3900) { game.spawn('romeiro', p.x + 5, p.z + 1, -Math.PI / 2); p.hp = 25; if (p.lock) game.act('local', 'lock') }
@@ -143,7 +179,7 @@ export async function SimFingerprint(vite, frames = 4220) {
       camera.update(dt, p, p.lock)
       if (p.safe) safeFrames++
       const c = camera.cam.position
-      if (trace) trace.push(`${f} r${calls} ${p.x.toFixed(4)},${p.z.toFixed(4)},${p.gy.toFixed(3)},${p.lv},${p.stamina.toFixed(2)} cam ${c.x.toFixed(4)},${c.z.toFixed(4)} roll ${p.rollT.toFixed(3)}${p.safe ? ' safe' : ''}${p.running ? ' run' : ''}${p.atk ? ` atk ${p.atk.kind}${p.atk.n} ${p.atk.t.toFixed(3)}` : ''} dmg ${game.targets.map((e) => e.dmg).join('/')}${p.lock ? ` lock ${p.lock.id} lost ${p.lockLost.toFixed(2)} face ${p.facing.toFixed(2)}` : ''} hp ${p.hp}${p.hurtT > 0 ? ' HURT' : ''}${p.dead ? ' DEAD' : ''}${game.enemies.map((e) => ` | ${e.kind} ${e.x.toFixed(2)},${e.z.toFixed(2)} ${e.state}${e.atk ? ':' + e.atk.name + ':' + e.atk.phase : ''} hp ${e.hp}`).join('')}`)
+      if (trace) trace.push(`${f} r${calls} ${p.x.toFixed(4)},${p.z.toFixed(4)},${p.gy.toFixed(3)},${p.lv},${p.stamina.toFixed(2)} cam ${c.x.toFixed(4)},${c.z.toFixed(4)} roll ${p.rollT.toFixed(3)}${p.safe ? ' safe' : ''}${p.running ? ' run' : ''}${p.atk ? ` atk ${p.atk.kind}${p.atk.n} ${p.atk.t.toFixed(3)}` : ''} dmg ${game.targets.map((e) => e.dmg).join('/')}${p.lock ? ` lock ${p.lock.id} lost ${p.lockLost.toFixed(2)} face ${p.facing.toFixed(2)}` : ''} hp ${p.hp}${p.hurtT > 0 ? ' HURT' : ''}${p.dead ? ' DEAD' : ''}${p.guard ? ' GUARD' : ''}${p.parryT >= 0 ? ' PARRY' : ''}${p.stunT > 0 ? ' STUN' : ''}${game.enemies.map((e) => ` | ${e.kind} ${e.x.toFixed(2)},${e.z.toFixed(2)} ${e.state}${e.atk ? ':' + e.atk.name + ':' + e.atk.phase : ''} hp ${e.hp} pos ${e.posture.toFixed(1)}`).join('')}`)
     }
     if (trace) (await import('node:fs')).writeFileSync(process.env.SIM_TRACE, trace.join('\n'))
     const r = (v) => (typeof v === 'number' ? Math.round(v * 1e6) / 1e6 : v)
@@ -151,13 +187,13 @@ export async function SimFingerprint(vite, frames = 4220) {
       players: [...game.players.values()].map((q) => [q.id, r(q.x), r(q.z), r(q.gy), q.lv, r(q.stamina), r(q.facing), q.tired]),
       door: door ? [r(door.x), r(door.z)] : null,
       camera: [r(camera.cam.position.x), r(camera.cam.position.y), r(camera.cam.position.z)],
-      rolls, safeFrames, locks, hurts, deaths, kills,
+      rolls, safeFrames, locks, hurts, deaths, kills, s6,
       targets: game.targets.map((e) => [e.id, e.hits, e.dmg, e.posture]),
       enemies: game.enemies.map((e) => [e.id, r(e.x), r(e.z), e.hp, e.state, e.dead]),
     }
     const [, x, z, , lv, st] = state.players[0]
     const t0 = game.targets[0]
-    return { hash: createHash('sha256').update(JSON.stringify(state)).digest('hex'), summary: `jogador em (${x.toFixed(2)}, ${z.toFixed(2)}) · andar ${lv} · fôlego ${Math.round(st)} · ${rolls} rolamentos · boneco: ${t0.hits} golpes, ${t0.dmg} de dano · levou ${hurts} golpes, ${deaths} morte(s), ${kills} inimigo(s) vencido(s)${door ? '' : ' · casa sem porta?'}` }
+    return { hash: createHash('sha256').update(JSON.stringify(state)).digest('hex'), summary: `jogador em (${x.toFixed(2)}, ${z.toFixed(2)}) · andar ${lv} · fôlego ${Math.round(st)} · ${rolls} rolamentos · boneco: ${t0.hits} golpes, ${t0.dmg} de dano · levou ${hurts} golpes, ${deaths} morte(s), ${kills} inimigo(s) vencido(s) · escudo ${s6.block}, aparos ${s6.parry}, guarda quebrada ${s6.guardBreak}, joelhos ${s6.broken}, críticos ${s6.critical}${door ? '' : ' · casa sem porta?'}` }
   } finally {
     Math.random = realRandom
     Error.stackTraceLimit = realLimit

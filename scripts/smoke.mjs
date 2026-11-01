@@ -125,11 +125,18 @@ async function play(page) {
   await k.press('q')
   await wait(1800)
   await shot('08-romeiro.jpg')
-  await k.press('Space'); await wait(1500)
+  // escudo (segurar clique direito) e aparo (Shift + clique direito)
+  await page.mouse.move(480, 270)
+  await page.mouse.down({ button: 'right' }); await wait(1200)
+  await shot('09-escudo.jpg')
+  await page.mouse.up({ button: 'right' })
+  await k.down('Shift'); await page.mouse.down({ button: 'right' }); await page.mouse.up({ button: 'right' }); await k.up('Shift')
+  await wait(600)
+  await k.press('Space'); await wait(1200)
   // resto do tempo: anda em volta (bate no muro e nas peças)
   const keys = ['s', 'd', 'w', 'a']
   for (let i = 0; Date.now() - t0 < PLAY_SECONDS * 1000; i++) await hold([keys[i % 4]], 900)
-  await shot('09-fim.jpg')
+  await shot('10-fim.jpg')
 }
 
 // controle de mentira: o navegador sem tela não tem controle, e o jogo só lê navigator.getGamepads() a cada quadro

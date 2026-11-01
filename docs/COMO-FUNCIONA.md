@@ -54,6 +54,9 @@ Exemplos:
   Andar travado mais rápido: `aim` em `move`.
 - Romeiro: tudo em `romeiro` (vida, velocidade, quanto enxerga). Cada golpe dele em `attacks`: `warn` é o aviso (mais alto = mais
   fácil), `recover` é a janela para punir, `dmg` o dano. Onde ele fica na arena: `enemies`.
+- Escudo: `guard` (velocidade, quanto fôlego cada golpe segurado gasta). Aparo: `parry.window` (maior = mais fácil).
+- Postura: `posture` (quanto tempo até esvaziar) e, no inimigo, `posture` e `broken` (quanto tempo fica de joelhos).
+  Golpe crítico: `critical`.
 
 ## Como testar
 - Depois de cada PR: siga `docs/TESTE-MANUAL.md` (poucos minutos).

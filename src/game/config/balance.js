@@ -46,6 +46,31 @@ export const BALANCE = {
     buffer: 0.25, // apertou até tanto tempo (s) antes do fim do golpe: fica guardado e sai na hora certa
   },
 
+  // Escudo (DESIGN 3.3): segurar clique direito ou LB. Rodela de madeira, desde o começo
+  guard: {
+    speed: 2.4, // andando com o escudo erguido (m/s)
+    cost: 1.5, // fôlego gasto por ponto de dano segurado (golpe de 15 = 22,5 de fôlego)
+    regen: 0.4, // com o escudo erguido o fôlego volta a 40% da velocidade
+    arc: 90, // o escudo protege até tantos graus para cada lado da frente (de costas, não segura)
+    broken: 1.0, // fôlego zerou segurando um golpe: guarda quebrada, atordoado por tanto tempo (s), aberto a tudo
+    push: 0.9, // empurrão ao segurar um golpe (m/s)
+  },
+  // Aparar (DESIGN 3.3): Shift + clique direito ou LT. Acertou o instante: a postura do inimigo quebra
+  parry: {
+    stamina: 8, // fôlego gasto
+    window: 0.18, // instante que apara (s, do aperto em diante)
+    miss: 0.5, // errou: fica aberto por tanto tempo depois da janela (s)
+    slow: 0.12, // aparo certo: tudo fica lento por tanto tempo (s)
+    slowScale: 0.25, // ... a essa velocidade (0,25 = um quarto)
+  },
+  // Postura (DESIGN 3.4): cada golpe enche a barra do inimigo; cheia, ele cai de joelhos e aceita o golpe crítico
+  posture: {
+    delay: 1.5, // a barra só começa a esvaziar depois de tanto tempo (s) sem levar golpe
+    regen: 10, // ... e esvazia tanto por segundo
+  },
+  // Golpe crítico: golpe leve a até `range` m de quem está de joelhos. Invulnerável durante a animação
+  critical: { anim: 'riposte', time: 1.2, hit: [0.42, 0.5], mult: 3, range: 2.0, arc: 70, lunge: 0.3 },
+
   // Bonecos de treino (S3, S4): onde ficam na arena. Não morrem
   dummies: [{ x: 0, z: 2 }, { x: 4, z: 0 }],
 
@@ -73,6 +98,8 @@ export const BALANCE = {
     wait: [0.5, 1.1], // pausa entre ataques (s, sorteada)
     stagger: 0.35, // tropeço ao levar golpe fora do ataque (s). No aviso e no golpe ele não para
     sink: 4, // morto: afunda no chão depois de tanto tempo (s)
+    broken: 2.0, // postura quebrada: de joelhos por tanto tempo (s)
+    parryBreak: 1, // aparo certo enche tanto da barra de postura (1 = quebra na hora; elite 0,5; chefe 0,25)
     attacks: {
       smash: { warn: 0.5, warnTurn: 180, hits: [0.15], dmg: 15, range: 2.3, arc: 35, recover: 0.8, lunge: 0.3 }, // pancada
       cuts: { warn: 0.45, warnTurn: 180, hits: [0.12, 0.12], gap: 0.22, dmg: 10, range: 2.0, arc: 70, recover: 1.0 }, // dois cortes
@@ -106,12 +133,14 @@ export const BALANCE = {
   // Sensação de impacto (DESIGN 8): cada golpe que acerta. light = leve, heavy = pesado
   juice: {
     // pausa no impacto: o jogo congela por tanto tempo (s) quando o golpe acerta. 0 desliga
-    hitStop: { light: 0.03, heavy: 0.07, critical: 0.12, parry: 0.12 },
+    hitStop: { light: 0.03, heavy: 0.07, critical: 0.12 },
+    zoom: { critical: 0.05, time: 0.4 }, // golpe crítico: a câmera chega 5% mais perto e volta em 0,4 s (DESIGN 8, item 6)
     // tremor de tela: quanto a câmera balança (m) em cada caso, e por quanto tempo (s). scale 0 desliga todos. Leve não treme
     // hurt = levou golpe; hurtStrong = levou golpe forte
-    shake: { scale: 1, time: 0.25, heavy: 0.1, critical: 0.18, hurt: 0.08, hurtStrong: 0.15 },
+    shake: { scale: 1, time: 0.25, heavy: 0.1, critical: 0.18, hurt: 0.08, hurtStrong: 0.15, guardBreak: 0.12 },
     // vibração do controle: [motor forte, motor fraco (0 a 1), duração (ms)]. scale 0 desliga
-    rumble: { scale: 1, light: [0.05, 0.3, 50], heavy: [0.35, 0.5, 110], critical: [0.7, 0.8, 200], hurt: [0.45, 0.4, 130], hurtStrong: [0.7, 0.6, 200] },
+    rumble: { scale: 1, light: [0.05, 0.3, 50], heavy: [0.35, 0.5, 110], critical: [0.7, 0.8, 200], hurt: [0.45, 0.4, 130], hurtStrong: [0.7, 0.6, 200],
+      block: [0.2, 0.35, 80], parry: [0.3, 0.9, 90], guardBreak: [0.8, 0.6, 250] },
     trail: 0.12, // rastro da lâmina: some em tanto tempo (s). Só aparece no instante em que a lâmina machuca
   },
 
@@ -119,7 +148,7 @@ export const BALANCE = {
   // No PlayStation: A = ✕, B = ◯, X = ▢, Y = △, LB/RB = L1/R1, LT/RT = L2/R2
   pad: {
     dead: 0.2, // zona morta do stick (0 a 1): abaixo disso conta como solto (evita andar sozinho com o stick gasto)
-    hold: { B: 'run' }, // B: tocar rola, segurar corre
+    hold: { B: 'run', LB: 'guard' }, // B: tocar rola, segurar corre · LB: segurar ergue o escudo
     // apertar: cada ação só faz efeito quando o PR dela chegar (bater S3, travar S4, aparar S6, cabaça S7)
     // R-left / R-right = puxar o stick direito para o lado (troca de alvo)
     press: { A: 'use', X: 'heal', RB: 'light', RT: 'heavy', LT: 'parry', R3: 'lock', 'R-left': 'lock-prev', 'R-right': 'lock-next', RIGHT: 'swap' },
@@ -127,7 +156,7 @@ export const BALANCE = {
 
   // Teclado e mouse (DESIGN 3.7). WASD anda. Nomes: letras, 'space', 'mouse-left', 'mouse-right', 'mouse-middle', 'wheel-up', 'wheel-down'
   keys: {
-    hold: { space: 'run' }, // Espaço: tocar rola, segurar corre
+    hold: { space: 'run', 'mouse-right': 'guard' }, // Espaço: tocar rola, segurar corre · clique direito: escudo
     // apertar ('shift+…' = com Shift segurado). Cada ação só faz efeito quando o PR dela chegar
     press: { e: 'use', r: 'heal', q: 'lock', 'mouse-middle': 'lock', 'wheel-up': 'lock-prev', 'wheel-down': 'lock-next',
       'mouse-left': 'light', 'shift+mouse-left': 'heavy', 'shift+mouse-right': 'parry' },

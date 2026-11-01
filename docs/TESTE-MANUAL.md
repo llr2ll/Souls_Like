@@ -56,6 +56,14 @@ Cada PR acrescenta os itens dele aqui.
 | 44 | **Vencer** | Ele cai e, depois de uns segundos, afunda no chão | ☐ |
 | 45 | **Morrer** | "A névoa te levou". Em 3,5 s você volta ao começo com tudo cheio e o Romeiro volta para o lugar dele | ☐ |
 | 46 | **Fugir** | Longe o bastante, ele desiste e volta andando para onde estava | ☐ |
+| 47 | **Escudo** (S6): segure o clique direito (ou LB) | O peregrino ergue a rodela de madeira na frente do peito e anda devagar | ☐ |
+| 48 | **Segurar golpe** de frente para o Romeiro | Baque de madeira e faísca pequena; a vida não desce, o fôlego desce | ☐ |
+| 49 | **Escudo de costas** | Golpe pelas costas passa (o escudo só protege a frente) | ☐ |
+| 50 | **Guarda quebrada**: segure golpes até o fôlego acabar | O escudo cai, ele fica atordoado 1 s (aberto a tudo) | ☐ |
+| 51 | **Aparar**: Shift + clique direito (ou LT) bem na hora em que o golpe vai acertar | Faísca grande, "tlin", tudo fica lento um instante e o Romeiro cai de joelhos com a arma brilhando | ☐ |
+| 52 | **Aparar cedo ou tarde** | Não apara: ele fica aberto meio segundo (e leva o golpe) | ☐ |
+| 53 | **Postura**: trave nele (Q) e bata 3 vezes seguidas | Sob a barra de vida, uma barra dourada enche a cada golpe; cheia, ele cai de joelhos. Parando de bater, ela esvazia | ☐ |
+| 54 | **Golpe crítico**: com ele de joelhos, chegue perto e clique (ou RB) | Uma estocada funda: a câmera chega perto, a tela treme, tira muito (36). Só um por vez: depois ele levanta | ☐ |
 
 ## Anotar o FPS
 O FPS aparece em verde no canto de cima, à direita. Anote depois de 1 minuto andando pela arena.

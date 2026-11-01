@@ -8,6 +8,7 @@ import { BALANCE } from '../config/balance'
 // Pancada: ergue o bordão acima da cabeça (aviso + gemido) e desce. Dois cortes: recolhe a foice para trás e corta duas vezes
 // (ida e volta). Corpo: o humanoide do survivor (12 variações) com poses de golpe exageradas.
 const WOOD = 0x6b4a2b, IRON = 0x9aa0a8, GOURD = 0xc9a14a
+const GLOW = new THREE.MeshBasicMaterial({ color: 0xffeab0 }) // de joelhos: a arma brilha (DESIGN 3.4)
 let STAFF = null, SICKLE = null
 // eixo do braço = -Y; a mão fica na origem
 const staff = () => (STAFF ||= merge([
@@ -48,8 +49,10 @@ const SPEC = {
     const m = CreateZombieModel(Math.floor(Math.random() * VARIANTS))
     const s = new THREE.Mesh(staff(), MAT.solid); s.rotation.x = -0.35; m.hands.R.add(s)
     const k = new THREE.Mesh(sickle(), MAT.solid); m.hands.L.add(k)
+    m.weapons = [s, k]
     return m
   },
+  glow(m, on) { for (const w of m.weapons) w.material = on ? GLOW : MAT.solid },
   // longe (fora do alcance dos cortes), a pancada; perto, sorteia
   choose(e, d) {
     if (d > BALANCE.romeiro.attacks.cuts.range + 0.1) return 'smash'

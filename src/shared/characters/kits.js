@@ -196,6 +196,15 @@ function samurai(holder) {
       [0.78, [0.0, 1.2, 0.56], BLADE(0, 0), { spineY: 0.28, spineX: 0.16, crouch: -0.1 }],
       [1, guardP, guardQ],
     ]),
+    // crítico: recolhe, crava a lâmina no inimigo de joelhos, torce e puxa
+    riposte: track([
+      [0, guardP, guardQ],
+      [0.2, [-0.18, 1.2, -0.05], BLADE(0.04, 0.05), { spineY: -0.5, crouch: -0.04 }],
+      [0.33, [0.0, 1.0, 0.6], BLADE(0, -0.6), { spineY: 0.35, spineX: 0.35, crouch: -0.2 }],
+      [0.6, [0.0, 0.98, 0.58], BLADE(0.1, -0.65, 0.7), { spineY: 0.3, spineX: 0.38, crouch: -0.22 }],
+      [0.78, [-0.1, 1.2, 0.3], BLADE(0.05, 0.1), { spineY: -0.1, spineX: 0.1 }],
+      [1, guardP, guardQ],
+    ]),
     // pesado: ergue acima da cabeça, segura (o aviso para quem olha), desce com o corpo todo e fica embaixo um instante
     heavy: track([
       [0, guardP, guardQ],

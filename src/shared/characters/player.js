@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { MAT } from '../../engine/render/style'
+import { MAT, P, merge, box, sph } from '../../engine/render/style'
 import { LOOK, BONES as B } from './looks'
 import { KITS } from './kits'
 
@@ -52,7 +52,17 @@ function solveArm(sh, el, S, T, pole, a, b) {
   el.rotation.x = -bend
 }
 
-export function CreatePlayerModel(cls = 'gunner') {
+// rodela de madeira (escudo redondo): tábuas, aro e umbo de ferro (o umbo fica para -Z da geometria)
+const WOODS = [0x8a5a30, 0x7a4e2a, 0x946236]
+let SHIELD = null
+const shieldGeo = () => (SHIELD ||= merge([
+  ...[-0.2, -0.1, 0, 0.1, 0.2].map((x, i) => box(0.098, 0.035, Math.sqrt(0.3 * 0.3 - x * x) * 2 - 0.02, WOODS[i % 3], [x, 0, 0], { lit: 0.12 })),
+  P(new THREE.TorusGeometry(0.29, 0.018, 4, 20).rotateX(Math.PI / 2), 0x6c6f78, { p: [0, 0, 0], lit: 0.3 }),
+  P(sph(0.07, 8, 5), 0x8a8f99, { p: [0, -0.02, 0], s: [1, 0.55, 1], lit: 0.35 }),
+]).rotateX(Math.PI / 2))
+
+// opts.shield: escudo no braço esquerdo; a espada fica de uma mão (a mão esquerda não vai mais no cabo)
+export function CreatePlayerModel(cls = 'gunner', opts = {}) {
   const look = LOOK(cls)
   const mesh = (geo) => new THREE.Mesh(geo, MAT.solid)
   const grp = (parent, x = 0, y = 0, z = 0) => { const g = new THREE.Group(); g.position.set(x, y, z); parent.add(g); return g }
@@ -85,6 +95,9 @@ export function CreatePlayerModel(cls = 'gunner') {
     return { sh, el, hand, s, S: new THREE.Vector3(s * B.shX, B.shY, 0), T: new THREE.Vector3(), pole: new THREE.Vector3() }
   }
   const arms = [arm(1), arm(-1)]
+  const shield = opts.shield ? mesh(shieldGeo()) : null
+  // no antebraço esquerdo, pelo lado de fora: a face fica perpendicular ao eixo do cotovelo (guarda: de frente; braço caído: de lado)
+  if (shield) { shield.position.set(0.07, -0.15, 0); shield.rotation.y = -Math.PI / 2; arms[0].el.add(shield) }
   const holder = grp(tilt)
   const kit = KITS[cls](holder, { handR: arms[1].hand, handL: arms[0].hand, spine })
 
@@ -93,7 +106,7 @@ export function CreatePlayerModel(cls = 'gunner') {
   // ---- estado da animação ----
   let t = Math.random() * 10, phase = 0, aimW = 0, runW = 0, moveW = 0, airW = 0, swimW = 0, seatW = 0, legYaw = 0, sideK = 0
   let turnStep = 0, lean = 0, accLean = 0, lastSp = 0, fall = 0, fallDir = -1, hurtT = 0, recoil = 0, flashT = 0, landT = 0, wasAir = false
-  let act = null, actT = 0, actDur = 1, look2 = 0, lookT = 2, heldW = 0
+  let act = null, actT = 0, actDur = 1, look2 = 0, lookT = 2, heldW = 0, guardW = 0
   const pose = {
     pos: new THREE.Vector3(), quat: new THREE.Quaternion(), holdQuat: new THREE.Quaternion(), rGrip: new THREE.Vector3(), lGrip: new THREE.Vector3(),
     rTarget: new THREE.Vector3(), lTarget: new THREE.Vector3(),
@@ -108,7 +121,7 @@ export function CreatePlayerModel(cls = 'gunner') {
     const sp = seat ? 0 : p.speed
     const moving = sp > 0.3
     // pesos suavizados: transições sem "estalo" entre andar/correr/mirar/pular/nadar/sentar
-    aimW = damp(aimW, p.aiming || (act && act !== 'swap' && act !== 'roll') ? 1 : 0, 11, dt)
+    aimW = damp(aimW, p.aiming || (act && act !== 'swap' && act !== 'roll' && act !== 'parry' && act !== 'stagger') ? 1 : 0, 11, dt)
     runW = damp(runW, p.running && moving ? 1 : 0, 6, dt)
     moveW = damp(moveW, clamp(sp / 1.6, 0, 1), 9, dt)
     const air = !seat && !p.swim && p.jy > 0.06
@@ -132,6 +145,9 @@ export function CreatePlayerModel(cls = 'gunner') {
     const tk = tuck * tuck * (3 - 2 * tuck)
     const sk = rolling ? clamp((ak - 0.06) / 0.72, 0, 1) : 0
     const spin = Math.PI * 2 * sk * sk * (3 - 2 * sk)
+    // escudo: erguido (p.guard) ou aparando (ação 'parry': empurra o escudo para fora no começo e volta)
+    guardW = damp(guardW, (p.guard || act === 'parry') && opts.shield ? 1 : 0, 18, dt)
+    const parryPush = act === 'parry' ? pulse(clamp(ak / 0.45, 0, 1), 0.35) : 0
     heldW = damp(heldW, p.held ? 1 : 0, 8, dt) // agarrado: se debatendo
     if (p.dead) fall = Math.min(1, fall + dt * (0.6 + fall * 4)) // cai acelerando
     else fall = damp(fall, 0, 5, dt)
@@ -254,8 +270,8 @@ export function CreatePlayerModel(cls = 'gunner') {
       if (hurtT > 0) v.z -= hurtT * 0.6
       if (heldW > 0.01) { w.set(s * 0.22, -0.05 + Math.sin(t * 19 + s) * 0.08, 0.32).add(a.S); v.lerp(w, heldW * 0.7) } // empurrando o zumbi para longe
       a.T.copy(v)
-      // mãos no objeto
-      const gw = (right ? pose.rW : pose.lW) * free
+      // mãos no objeto (com escudo, a esquerda não vai no cabo)
+      const gw = (right ? pose.rW : opts.shield ? 0 : pose.lW) * free
       if (gw > 0) { hp.copy(right ? pose.rGrip : pose.lGrip).applyQuaternion(holder.quaternion).add(holder.position); toSpine(w, hp); a.T.lerp(w, gw) }
       const tw = (right ? pose.rT : pose.lT) * free
       if (tw > 0) { toSpine(w, right ? pose.rTarget : pose.lTarget); a.T.lerp(w, tw) }
@@ -275,8 +291,11 @@ export function CreatePlayerModel(cls = 'gunner') {
       }
       if (fall > 0) { w.set(s * 0.55, -0.15, -0.05).add(a.S); a.T.lerp(w, fall) }
       if (tk > 0) { w.set(s * 0.16, -0.32, 0.3).add(a.S); a.T.lerp(w, tk * (1 - gw * 0.6)) } // rolando: braços abraçando os joelhos
+      // escudo à frente do peito; aparando, vai para fora e para a frente num tranco
+      const gW = !right ? guardW * (1 - tk) * free : 0
+      if (gW > 0) { w.set(-0.2 + parryPush * 0.22, -0.12 + parryPush * 0.08, 0.36 + parryPush * 0.14).add(a.S); a.T.lerp(w, gW) }
       // cotovelo: para trás quando o braço está solto, para fora/baixo quando segura algo à frente
-      const hold = Math.max(gw, tw, driving ? 1 : 0)
+      const hold = Math.max(gw, tw, gW, driving ? 1 : 0)
       a.pole.set(s * lerp(0.25, 0.7, hold), lerp(-0.15, -1, hold), lerp(-1, -0.25, hold)).normalize()
       solveArm(a.sh, a.el, a.S, a.T, a.pole, B.upper, B.fore)
     }
@@ -293,6 +312,7 @@ export function CreatePlayerModel(cls = 'gunner') {
 
   return {
     root,
+    shield,
     setWeapon: (w) => kit.setWeapon(w),
     muzzle: (out) => { root.updateMatrixWorld(true); return kit.muzzle(out) },
     kick() { recoil = 1; flashT = 0.05; kit.flash(true); kit.kick() },
