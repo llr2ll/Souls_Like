@@ -22,8 +22,9 @@ const wrap = (a) => { a = (a + Math.PI) % (Math.PI * 2); if (a < 0) a += Math.PI
 const KINDS = { romeiro: CreateRomeiro }
 const PLAYER_R = 0.45
 
-// map = o mapa em jogo (BALANCE.maps.*): largada, bonecos, cruceiros. Os inimigos o main.js (ou o replay) põe com spawn
-export function CreateGame(scene, map = BALANCE.maps.arena) {
+// map = o mapa em jogo (BALANCE.maps.*): largada, bonecos, cruceiros, itens, atalhos. Os inimigos o main.js (ou o replay) põe.
+// world = o que o cenário mexe (portões, alavancas), vindo de world/santa-baia.js; a arena não tem
+export function CreateGame(scene, map = BALANCE.maps.arena, world) {
   const players = new Map()
   const PL = BALANCE.player, R = BALANCE.roll, AT = BALANCE.attack, LK = BALANCE.lock, HU = BALANCE.hurt
   const GU = BALANCE.guard, PA = BALANCE.parry, CR = BALANCE.critical
@@ -31,7 +32,7 @@ export function CreateGame(scene, map = BALANCE.maps.arena) {
   const dummies = (map.dummies || []).map((d) => CreateDummy(scene, d.x, d.z))
   const enemies = []
   const targets = [...dummies] // o que pode levar golpe: bonecos e inimigos
-  const progress = CreateProgress(scene, enemies, map)
+  const progress = CreateProgress(scene, enemies, map, world)
   let stopT = 0 // pausa no impacto: o jogo fica parado enquanto > 0
   let slowT = 0 // aparo certo: tudo fica lento enquanto > 0
   // velocidade no começo do rolamento: ela cai em curva (cosseno) até parar no fim, andando R.distance
@@ -54,15 +55,16 @@ export function CreateGame(scene, map = BALANCE.maps.arena) {
       lock: null, lockLost: 0, // alvo travado; há quanto tempo não o vê
       hurtT: 0, kbx: 0, kbz: 0, deadT: 0, // tropeço (tempo e empurrão); morto há quanto tempo
       guard: false, parryT: -1, stunT: 0, // escudo erguido agora; aparando há quanto tempo; aberto (guarda quebrada, aparo errado)
-      gourd: BALANCE.gourd.sips, gourdMax: BALANCE.gourd.sips, bread: BALANCE.bread.start, // goles e pães
+      gourd: BALANCE.gourd.sips, gourdMax: BALANCE.gourd.sips, bread: map.bread ?? BALANCE.bread.start, // goles e pães
       use: null, useT: -1, healed: false, // bebendo ('drink') ou comendo ('eat'); há quanto tempo; a cura já entrou?
       cera: 0, home: null, safeX: START.x, safeY: 0, safeZ: START.z, // cera; último cruceiro; último chão firme (a vela fica ali)
     })
   }
   // inimigos: o jogo (main.js) põe os da arena; o replay põe na hora da cena dele
   const ctx = { players, sees: (a, b) => sees(a, b), hurt: (p, dmg, dir, by, strong) => hurtPlayer(p, dmg, dir, by, strong) }
-  function spawn(kind, x, z, ry = 0) {
-    const e = KINDS[kind](scene, x, z, ry, ctx)
+  // opts: { sit } (sentado até ver o jogador)
+  function spawn(kind, x, z, ry = 0, opts = {}) {
+    const e = KINDS[kind](scene, x, z, ry, ctx, opts)
     enemies.push(e); targets.push(e)
     return e
   }

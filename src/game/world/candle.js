@@ -33,9 +33,9 @@ function Flame(parent, x, y, z, size = 1) {
 
 let VOTIVE = null
 // três velinhas no pé do cruceiro: apagadas até o primeiro descanso
-export function CreateCruceiroCandles(scene, x, z) {
+export function CreateCruceiroCandles(scene, x, z, y = 0) {
   const root = new THREE.Group()
-  root.position.set(x, 0, z + 1.0)
+  root.position.set(x, y, z + 1.0)
   root.add(new THREE.Mesh(VOTIVE ||= merge([
     ...[[-0.18, 0.12], [0.02, 0.18], [0.2, 0.1]].map(([cx, h]) => P(cyl(0.04, 0.045, h, 7), WAX, { p: [cx, h / 2 + 0.25, 0], lit: 0.2 })),
   ]), MAT.solid))
@@ -45,6 +45,23 @@ export function CreateCruceiroCandles(scene, x, z) {
   const set = (on) => { for (const f of flames) f.group.visible = on }
   set(false)
   return { set, update(dt) { t += dt; for (const f of flames) f.update(t) } }
+}
+
+// brilho de item no chão (pão, achado): pontinho claro que pulsa e gira, como nos souls
+const glintMat = new THREE.MeshBasicMaterial({ color: 0xfff1c8 })
+const glintGlow = new THREE.MeshBasicMaterial({ color: 0xffe9b0, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false })
+const glintGeo = new THREE.OctahedronGeometry(0.07, 0), glowSmall = new THREE.IcosahedronGeometry(0.22, 1)
+export function CreateItemGlint(scene, x, z, y = 0) {
+  const root = new THREE.Group()
+  root.position.set(x, y + 0.35, z)
+  const core = new THREE.Mesh(glintGeo, glintMat), glow = new THREE.Mesh(glowSmall, glintGlow)
+  root.add(core, glow)
+  scene.add(root)
+  let t = x
+  return {
+    update(dt) { t += dt; core.rotation.y += dt * 2; root.position.y = y + 0.35 + Math.sin(t * 2) * 0.05; glow.scale.setScalar(0.8 + 0.25 * Math.sin(t * 3)) },
+    remove() { scene.remove(root) },
+  }
 }
 
 let DEATH = null

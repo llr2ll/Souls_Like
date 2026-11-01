@@ -70,7 +70,13 @@ export function CreateHud(tune) {
     },
     // o que dá para fazer aqui (E/A): it = progress.interactable(p); key = 'E' ou 'A'
     prompt(it, key) {
-      const text = !it ? '' : it.kind === 'candle' ? `${key} · Pegar a cera (${it.cera})` : `${key} · Descansar no ${it.c.name}`
+      const text = !it ? ''
+        : it.kind === 'candle' ? `${key} · Pegar a cera (${it.cera})`
+        : it.kind === 'lever' ? `${key} · Puxar a alavanca`
+        : it.kind === 'locked' ? `${key} · Empurrar o ${it.s.name}`
+        : it.kind === 'fog' ? `${key} · Atravessar a névoa`
+        : it.kind === 'item' ? `${key} · ${it.it.kind === 'bread' ? 'Pegar pão de milho' : `Ler: ${it.it.title}`}`
+        : `${key} · Descansar no ${it.c.name}`
       if (text === lastPrompt) return
       lastPrompt = text
       prompt.textContent = text

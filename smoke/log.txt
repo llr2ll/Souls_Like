@@ -1,19 +1,24 @@
-[0s] 1/3 compilando o jogoâ€¦
-[3s] 2/3 subindo a pÃ¡ginaâ€¦
-[5s] 3/3 abrindo o jogo no navegador sem telaâ€¦
-[11s]    jogo desenhando (FPS: 1)
-[11s]    jogando 40 sâ€¦
-[13s]    captura 01-inicio.jpg
-[18s]    captura 02-golpe.jpg
-[21s]    captura 03-trava.jpg
-[26s]    captura 04-cruceiro.jpg
-[29s]    captura 05-rolando.jpg
-[38s]    captura 06-casa.jpg
-[41s]    captura 07-controle.jpg
-[45s]    captura 08-folego.jpg
-[53s]    captura 09-romeiro.jpg
-[55s]    captura 10-escudo.jpg
-[60s]    captura 11-cabaca.jpg
-[61s]    captura 12-fim.jpg
+[0s] 1/3 compilando o jogo…
+[2s] 2/3 subindo a página…
+[3s] 3/3 abrindo o jogo no navegador sem tela…
+[6s]    arena de teste desenhando (FPS: 1)
+[6s]    jogando 40 s…
+[7s]    captura 01-inicio.jpg
+[12s]    captura 02-golpe.jpg
+[22s]    captura 03-trava.jpg
+[28s]    captura 04-cruceiro.jpg
+[31s]    captura 05-rolando.jpg
+[40s]    captura 06-casa.jpg
+[42s]    captura 07-controle.jpg
+[47s]    captura 08-folego.jpg
+[54s]    captura 09-romeiro.jpg
+[56s]    captura 10-escudo.jpg
+[61s]    captura 11-cabaca.jpg
+[62s]    captura 12-fim.jpg
+[65s]    vale desenhando (FPS: 1)
+[66s]    captura 13-vale-largada.jpg
+[70s]    captura 14-vale-achado.jpg
+[77s]    captura 15-vale-ponte.jpg
+[83s]    captura 16-vale-vila.jpg
 
 PASSOU

@@ -50,10 +50,14 @@ npm run build    # gera dist/ (para hospedar)
      esvazia a cabaça e tenta de novo. O hash conta curas, perdas, vazios, vida, goles e pães.
      S8 (180–203 s) vence um Romeiro (+cera), descansa no cruceiro, morre longe (vela), volta no cruceiro, pega a vela, morre de novo
      e outra vez antes de pegar (cera perdida); salva e carrega (tem de dar igual). O hash conta descansos, velas, pegas, perdas.
+     S9 (+42 s, outro mapa no mesmo processo: `ResetColliders` + `ResetBuildings` e monta o vale): lê a inscrição, o rio barra,
+     atravessa a ponte e descansa no ✝ da Ponte, pega pão, portão fechado por fora, alavanca por dentro, desce o corredor até o
+     prado, a névoa barra, salva e carrega. As cenas S0–S8 continuam na arena.
      **PR de organização tem de dar igual.** PR que muda a jogabilidade de propósito: `npm run check -- --update-sim` e dizer isso na descrição.
      Cada PR de jogabilidade acrescenta a sua cena ao roteiro. `SIM_TRACE=arquivo node scripts/sim.mjs` grava o rastro quadro a quadro.
 - `npm run smoke` — teste automático (~1 min). Compila, sobe a página na porta **5199**, abre no Chromium sem tela, anda com o teclado,
-  joga com um controle de mentira (`navigator.getGamepads` trocado) e **falha se aparecer qualquer `console.error`** ou erro de página.
+  joga com um controle de mentira (`navigator.getGamepads` trocado) — isso tudo na arena (`?arena`) —, depois abre o vale e atravessa
+  a ponte, e **falha se aparecer qualquer `console.error`** ou erro de página.
   Capturas e log em `smoke/` (versionados: o PR mostra as capturas). O smoke usa a versão compilada: o que é só do `npm run dev` (tecla T) fica de fora.
   Sem acesso ao download do Playwright: `SMOKE_CHROME=/usr/bin/google-chrome node scripts/smoke.mjs` usa um Chrome já instalado
   (no Windows: `$env:SMOKE_CHROME="C:\Program Files\Google\Chrome\Application\chrome.exe"; node scripts/smoke.mjs`).
@@ -97,7 +101,9 @@ src/game/                 este jogo
   camera.js               câmera de cima em 3/4, fixa: segue o jogador olhando ~1,5 m à frente (antecipação); tremor (shake);
                           travado: olha entre os dois e se afasta (até 17 m) para caber os dois
   config/balance.js       TODOS os números ajustáveis, comentados em português
-  world/arena.js          arena de teste (S0): chão, muro, cruceiro, hórreo, carvalhos, pedras e uma casa
+  world/arena.js          arena de teste (S0–S8; `?arena` no endereço): chão, muro, cruceiro, hórreo, carvalhos, pedras e uma casa
+  world/santa-baia.js     o Val de Santa Baia (S9, o mapa padrão): chão com rio e subida, muros, casas, igreja, mosteiro, castro,
+                          árvores; portão + alavanca do atalho, névoa, fogueira. Tudo parado vira uma malha por material
   world/place-house.js    põe uma casa do survivor no mapa (trecho do gerador do survivor)
 ```
 
@@ -124,7 +130,7 @@ Copiado do survivor. **Só ganha coisas, nunca muda** (para o co-op pelo celular
   `guard` 0/1 = escudo erguido (acrescentado no S6, em `engine/input/contract.js`).
 - `game.act(id, ação)` — fazem efeito: `roll` (S2), `light`, `heavy` (S3), `lock`, `lock-next`, `lock-prev` (S4), `parry` (S6),
   `heal` (cabaça) e `eat` (pão de milho; ação nova, S7), `use` (S8: descansar no cruceiro / pegar a vela; S9: portas e alavancas).
-  `swap` já existia no contrato e ganha efeito no S12.
+  `use` no S9 também puxa alavanca, empurra portão fechado, pega item e "tenta" a névoa. `swap` ganha efeito no S12.
 - `run` = **botão de rolar/correr segurado**. O jogo decide (`game.js`): soltar antes de `BALANCE.roll.tap` (0,25 s) rola; segurar mais corre.
   O jogo guarda o que chegou em `p.raw` e monta `p.input` (o que o movimento copiado recebe).
 - Teclado e controle mexem o mesmo jogador, id `'local'`, e mandam o mesmo contrato (`engine/input/keyboard.js` e `gamepad.js`).
@@ -183,8 +189,19 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
   ou depois de 2 s sem ver (parede alta no meio; o boneco tem `h` baixo e não tapa). Travado e sem correr, o jogo manda `ax/az`
   na direção do alvo: o movimento copiado "mira" (anda de frente para o alvo, a `move.aim` m/s). Correr, rolar e golpear não miram.
   Golpe travado vai no alvo; rolamento vai para o stick.
-- Mapas: `BALANCE.maps.<nome>` = { start, dummies, cruceiros, enemies, … }. `CreateGame(scene, map)` usa largada, bonecos e cruceiros;
-  os inimigos do mapa o `main.js` põe. O replay usa sempre `maps.arena` (as cenas dele foram feitas nela).
+- Mapas: `BALANCE.maps.<nome>` = { start, dummies, cruceiros, enemies, items, shortcuts, fogs, bread }. `CreateGame(scene, map, world)`
+  usa largada, bonecos, cruceiros, itens, atalhos; `world` = o que o cenário mexe (portões, alavancas), de `BuildSantaBaia`.
+  O `main.js` escolhe pelo endereço: padrão = `demo` (o vale); `?arena` = a arena de teste. Um save por mapa.
+  O replay roda S0–S8 na arena e o S9 no vale.
+- Vale: o chão vem de `SantaBaiaGround(x, z)` (rio e subida do castro; `visual = true` só para desenhar o leito sob a ponte).
+  O movimento copiado sabe nadar: aqui a parte funda do rio tem colisores invisíveis (a margem rasa dá pé). Muros baixos (`h` < 1,2)
+  barram o passo sem tapar a visão. Os 3 romeiros da fogueira nascem sentados (`sit`: estado `feed` do zumbi até te verem).
+  Inimigos acompanham a altura do chão (`e.y = GroundAt`).
+- Itens (`map.items`): `bread` (+1 pão) ou `note` (achado: papel com título e texto na tela). Pegos não voltam (save: `pegos`).
+  Atalhos (`map.shortcuts`): alavanca (`lever`) abre o portão (`gate`); perto do lado de fora (`outside`): "Não abre deste lado".
+  Save: `atalhos`. Névoa (`map.fogs`): colisor + aviso; o chefe chega no S11.
+- **Não regrave arquivos pelo PowerShell** (`Get-Content`/`WriteAllText`): no Windows ele lê como Windows-1252 e estraga os acentos
+  (aconteceu com o `smoke.mjs` no S8; consertado no S9). Use o Edit/Write ou o node.
 - Inimigos: o `main.js` põe os de `map.enemies` com `game.spawn(tipo, x, z, ry)`; o replay põe os dele na hora da cena (senão
   eles atrapalhariam as cenas antigas). Golpe inimigo = aviso (`warn`) → golpes (`hits`, com `gap` entre eles) → `recover` (a janela).
   No aviso gira até `warnTurn` graus/s; no golpe não gira; o alvo do golpe é travado no fim do aviso. Acerta se o jogador estiver no
@@ -257,3 +274,7 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
   morte com facho de luz e zumbido (receita `candle` nova no `sfx.js`), uma chance de pegar, save no navegador (`?novo` apaga).
 - **s9a-mapas** (organização, replay igual) — largada, bonecos, cruceiros e inimigos saíram do topo do `balance.js` para
   `BALANCE.maps.arena`; `CreateGame(scene, map)` e `CreateProgress(scene, enemies, map)` recebem o mapa. Prepara a área da demo (S9).
+- **s9-santa-baia (S9)** — o Val de Santa Baia em blocos (`world/santa-baia.js` + `BALANCE.maps.demo`): rio e Ponte Vella, ✝ da Ponte,
+  rua de baixo (3 romeiros sentados ao lume), rua de cima, adro e cemitério, mosteiro com claustro, corredor do atalho com portão e
+  alavanca, souto (vazio até o S10), subida, ✝ do Castro, castro fechado pela névoa. 16 romeiros, 3 pães e 6 achados no chão.
+  É o mapa padrão; `?arena` abre a arena. Smoke: arena + volta no vale. Conserto dos acentos do `smoke.mjs`.
