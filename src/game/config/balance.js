@@ -32,17 +32,23 @@ export const BALANCE = {
     buffer: 0.25, // apertou rolar até tanto tempo (s) antes de poder: fica guardado e sai na hora certa
   },
 
-  // Ataques com a espada (DESIGN 3.2). time = duração do golpe (s); hit = [começo, fim] do instante em que a lâmina machuca (s);
-  // range = alcance (m, até a borda do alvo); arc = metade da abertura (graus: 60 = 60° para cada lado); lunge = passo à frente (m)
+  // Ataques (DESIGN 3.2): o que vale para todas as armas
   attack: {
-    light: [ // combo de 3: o 3º é uma estocada (abertura estreita)
-      { anim: 'slash1', time: 0.38, hit: [0.13, 0.22], dmg: 12, posture: 10, range: 2.4, arc: 60, stamina: 12, lunge: 0.35 },
-      { anim: 'slash2', time: 0.38, hit: [0.13, 0.22], dmg: 12, posture: 10, range: 2.4, arc: 60, stamina: 12, lunge: 0.35 },
-      { anim: 'thrust', time: 0.52, hit: [0.22, 0.31], dmg: 16, posture: 14, range: 2.4, arc: 35, stamina: 12, lunge: 0.55 },
-    ],
-    heavy: { anim: 'heavy', time: 0.9, hit: [0.45, 0.57], dmg: 22, posture: 20, range: 2.6, arc: 50, stamina: 24, lunge: 0.6 },
     combo: 0.8, // depois de um golpe leve, tanto tempo (s) para o próximo leve continuar o combo (senão volta ao 1º)
     buffer: 0.25, // apertou até tanto tempo (s) antes do fim do golpe: fica guardado e sai na hora certa
+  },
+  // Armas (DESIGN 6). light = golpes leves (o combo, em ordem); heavy = pesado.
+  // time = duração do golpe (s); hit = [começo, fim] do instante em que a lâmina machuca (s);
+  // range = alcance (m, até a borda do alvo); arc = metade da abertura (graus: 60 = 60° para cada lado); lunge = passo à frente (m)
+  weapons: {
+    espada: {
+      light: [ // combo de 3: o 3º é uma estocada (abertura estreita)
+        { anim: 'slash1', time: 0.38, hit: [0.13, 0.22], dmg: 12, posture: 10, range: 2.4, arc: 60, stamina: 12, lunge: 0.35 },
+        { anim: 'slash2', time: 0.38, hit: [0.13, 0.22], dmg: 12, posture: 10, range: 2.4, arc: 60, stamina: 12, lunge: 0.35 },
+        { anim: 'thrust', time: 0.52, hit: [0.22, 0.31], dmg: 16, posture: 14, range: 2.4, arc: 35, stamina: 12, lunge: 0.55 },
+      ],
+      heavy: { anim: 'heavy', time: 0.9, hit: [0.45, 0.57], dmg: 22, posture: 20, range: 2.6, arc: 50, stamina: 24, lunge: 0.6 },
+    },
   },
 
   // Cura (DESIGN 6). Cabaça: R ou X. Pão de milho: F ou Y. Bebendo/comendo anda devagar e não ataca nem rola

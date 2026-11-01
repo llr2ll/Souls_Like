@@ -35,6 +35,7 @@ const PLAYER_R = 0.45
 export function CreateGame(scene, map = BALANCE.maps.arena, world) {
   const players = new Map()
   const PL = BALANCE.player, R = BALANCE.roll, AT = BALANCE.attack, LK = BALANCE.lock, HU = BALANCE.hurt
+  const arm = (p) => BALANCE.weapons[p.weapon] // a arma na mão (golpes e números)
   const GU = BALANCE.guard, PA = BALANCE.parry, CR = BALANCE.critical
   const START = map.start
   const dummies = (map.dummies || []).map((d) => CreateDummy(scene, d.x, d.z))
@@ -54,6 +55,7 @@ export function CreateGame(scene, map = BALANCE.maps.arena, world) {
       id, name, model, x: START.x, z: START.z, vx: 0, vz: 0, aimAngle: Math.PI, facing: Math.PI, turn: 0, speed: 0,
       aiming: false, firing: false, jy: 0, vy: 0, gy: 0, y: 0, lv: 0, stamina: PL.stamina, staminaMax: PL.stamina, restT: 0,
       tired: false, running: false, hp: PL.hp, max: PL.hp, dead: false,
+      weapon: 'espada', // a arma na mão (BALANCE.weapons)
       raw: { mx: 0, mz: 0, ax: 0, az: 0, run: 0 }, // o que o teclado/controle mandou
       input: { mx: 0, mz: 0, ax: 0, az: 0, run: 0 }, // o que o movimento recebe (o jogo decide: tocar não corre, rolando não anda)
       dodgeT: 0, // há quanto tempo o botão de rolar/correr está segurado
@@ -277,14 +279,14 @@ export function CreateGame(scene, map = BALANCE.maps.arena, world) {
     const victim = kind === 'light' && kneeling(p)
     if (victim) {
       // crítico: 3× o dano do leve, só nele, invulnerável a animação toda (DESIGN 3.4)
-      const def = { ...CR, dmg: AT.light[0].dmg * CR.mult, posture: 0, stamina: 0 }
+      const def = { ...CR, dmg: arm(p).light[0].dmg * CR.mult, posture: 0, stamina: 0 }
       p.atk = { kind: 'critical', n: 0, def, t: 0, a: toward(p, victim), hit: new Set(), swung: false, victim }
       victim.riposted(CR.time)
       p.model.play(def.anim, def.time)
       return
     }
     const n = kind === 'light' ? (p.comboT > 0 ? p.comboN : 0) : 0
-    const def = kind === 'light' ? AT.light[n] : AT.heavy
+    const def = kind === 'light' ? arm(p).light[n] : arm(p).heavy
     p.atk = { kind, n, def, t: 0, a, hit: new Set(), swung: false }
     spend(p, def.stamina)
     p.model.play(def.anim, def.time)
@@ -418,7 +420,7 @@ export function CreateGame(scene, map = BALANCE.maps.arena, world) {
       A.t = t1
       if (A.t >= d.time) {
         p.atk = null; p.dashT = 0; p.safe = false
-        p.comboN = A.kind === 'light' ? (A.n + 1) % AT.light.length : 0
+        p.comboN = A.kind === 'light' ? (A.n + 1) % arm(p).light.length : 0
         p.comboT = A.kind === 'light' ? AT.combo : 0
       }
     }
