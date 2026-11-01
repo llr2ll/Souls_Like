@@ -60,7 +60,8 @@ Exemplos:
   Teclas do teclado: em `keys`, do mesmo jeito.
 - Rolamento longo ou curto demais? `distance` em `roll`. Mais rápido? Diminua `time`. Mais "perdão"? Aumente o fim de `safe`.
 - Fôlego acaba rápido? Diminua `stamina` em `roll` (gasto por rolamento) ou `staminaRun` em `move` (gasto correndo).
-- Golpes: em `attack`, cada golpe tem duração (`time`), o instante em que machuca (`hit`), dano, alcance, abertura e gasto de fôlego.
+- Golpes: em `weapons` → a arma (hoje `espada`), cada golpe tem duração (`time`), o instante em que machuca (`hit`), dano, alcance,
+  abertura e gasto de fôlego. O tempo do combo e da "fila" de botões fica em `attack`.
   A "travadinha" no acerto é `juice.hitStop` (0 desliga); o rastro da lâmina é `juice.trail`.
 - Travar no alvo: alcance e distância de soltar em `lock`. Quanto a câmera se afasta travada: `lockMax` em `camera`.
   Andar travado mais rápido: `aim` em `move`.

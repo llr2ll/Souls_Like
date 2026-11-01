@@ -201,6 +201,7 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
   e sai assim que der (rolar: `BALANCE.roll.buffer`; golpe: `BALANCE.attack.buffer`). Golpe começado não se cancela; o rolamento
   cancela só depois do fim do instante de dano (`hit[1]`). Rolando ou atacando, o fôlego não recupera.
 - Golpe acerta cada alvo **uma vez**, só no instante de dano (`hit`), no alcance (até a borda do alvo, `e.r`) e dentro da abertura (`arc`).
+  Os golpes vêm da arma na mão: `BALANCE.weapons[p.weapon]` (`light` = o combo, `heavy`); `BALANCE.attack` = combo e fila.
   Alvos = `game.targets` (hoje os bonecos; os inimigos entram no S5). Cada alvo tem `x, z, r, hit({ dmg, posture, dir, kind }), update(dt)`.
 - Travar (`p.lock`): escolhe o alvo mais perto na direção do stick/frente (desvio pesa `BALANCE.lock.anglePenalty` m por radiano),
   até 14 m e à vista. Trocar = o mais próximo do lado pedido **na tela** (a câmera é fixa: direita = x maior). Solta sozinho a 18 m
@@ -323,3 +324,5 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
   chocalho, enroscar com poeira; aparar o bote enche um quarto da postura) vira pedra e a Moura sai (fuso de 3 estocadas, fio de ouro
   no chão, encanto que volta por trás marcado por um brilho). Névoa: E/A entra, a abertura fecha atrás, vencido ela some (save).
   Música sintetizada (`audio/music.js`), barra grande do chefe, "Fim da demo". Sons novos no `sfx.js`. `?castro` = teste do chefe.
+- **s12a-armas** (organização, replay igual) — os golpes saíram de `BALANCE.attack` para `BALANCE.weapons.espada`; o jogador tem
+  `p.weapon` e o `game.js` lê a arma na mão. Prepara o bordão e a maça (S12).
