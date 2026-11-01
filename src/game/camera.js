@@ -3,30 +3,49 @@ import * as THREE from 'three'
 // Câmera de cima em 3/4, fixa (não gira): segue o jogador com suavidade. Números em balance.js · camera.
 // Antecipação: olha um pouco à frente de para onde o jogador anda (mais tela do lado para onde ele vai).
 // Tremor: shake(força, tempo) desliza a câmera por um instante, sem girar (receita do survivor, engine/render/splitscreen.js).
-// No S4: enquadrar o alvo travado.
+// Alvo travado: olha entre o jogador e o alvo e se afasta (até tune.lockMax) para caber os dois, com folga.
 export function CreateCamera(aspect, tune) {
   const cam = new THREE.PerspectiveCamera(tune.fov, aspect, 0.4, 120)
   const focus = new THREE.Vector3()
   const lead = { x: 0, z: 0 }
   const shakes = [] // tremores ativos: { power, time, t }
-  let first = true
+  const base = Math.hypot(tune.height - tune.lookY, tune.back) // distância normal (~13 m)
+  const sinPitch = (tune.height - tune.lookY) / base
+  let first = true, zoom = 1
 
-  function update(dt, p) {
+  // quanto afastar para os pontos caberem na tela em volta do foco (fx, fz)
+  function fit(fx, fz, pts) {
+    const t = Math.tan(THREE.MathUtils.degToRad(tune.fov / 2))
+    let need = 0
+    for (const q of pts) {
+      need = Math.max(need, (Math.abs(q.x - fx) + tune.lockMargin) / (t * cam.aspect)) // largura
+      need = Math.max(need, ((Math.abs(q.z - fz) + tune.lockMargin) * sinPitch) / t) // profundidade (o chão está inclinado)
+    }
+    return Math.min(tune.lockMax, Math.max(base, need)) / base
+  }
+
+  function update(dt, p, target) {
     if (!p) return
     const y = p.gy || 0
     // antecipação proporcional à velocidade (parado = nenhuma), suavizada à parte: virar não dá tranco.
     // + v / follow: a suavidade deixa a câmera para trás (v / follow metros); sem compensar, comeria a antecipação
-    const s = Math.hypot(p.vx, p.vz), want = s > 0.05 ? (Math.min(1, s / tune.leadSpeed) * tune.lead) / s + 1 / tune.follow : 0
+    // Travado: sem antecipação (quem enquadra é o alvo)
+    const s = Math.hypot(p.vx, p.vz), want = !target && s > 0.05 ? (Math.min(1, s / tune.leadSpeed) * tune.lead) / s + 1 / tune.follow : 0
     const kl = 1 - Math.exp(-tune.leadFollow * dt)
     lead.x += (p.vx * want - lead.x) * kl
     lead.z += (p.vz * want - lead.z) * kl
-    const tx = p.x + lead.x, tz = p.z + lead.z
+    let tx = p.x + lead.x, tz = p.z + lead.z, wantZoom = 1
+    if (target) {
+      tx += (target.x - p.x) * tune.lockBias; tz += (target.z - p.z) * tune.lockBias
+      wantZoom = fit(tx, tz, [p, target])
+    }
     if (first) { focus.set(tx, y, tz); first = false }
     const k = 1 - Math.exp(-tune.follow * dt)
     focus.x += (tx - focus.x) * k
     focus.y += (y - focus.y) * k
     focus.z += (tz - focus.z) * k
-    cam.position.set(focus.x, focus.y + tune.height, focus.z + tune.back)
+    zoom += (wantZoom - zoom) * (1 - Math.exp(-tune.zoomFollow * dt))
+    cam.position.set(focus.x, focus.y + tune.lookY + (tune.height - tune.lookY) * zoom, focus.z + tune.back * zoom)
     cam.lookAt(focus.x, focus.y + tune.lookY, focus.z)
 
     // tremor: soma dos tremores ativos, mais fraco no fim; a câmera só desliza (já olhou para o jogador)

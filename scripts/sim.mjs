@@ -8,13 +8,16 @@
 // segura o botão (corre), rola pela ação 'roll' sem direção (para a frente) e espera o fôlego voltar.
 // S3 (82–98 s): vai até o boneco de treino; combo de 3 leves (um aperto cedo demais é descartado), pesado, leve cancelado
 // por um rolamento depois do impacto, volta e bate até o fôlego acabar. O hash conta golpes e dano no boneco.
+// S4 (98–118 s): trava (o boneco à frente), troca para o da direita, anda de frente para ele, bate com o stick apontando
+// para o outro lado (o golpe vai no alvo), troca de volta, corre para longe (solta sozinho), tenta travar longe (nada),
+// volta, trava e se esconde atrás da casa (solta depois de 2 s sem ver). O hash conta as travadas.
 // Cada PR que cria jogabilidade acrescenta a sua cena ao roteiro.
 // Rode sempre em processo novo (node scripts/sim.mjs): o Three.js e o Vite guardam estado entre rodadas.
 // SIM_TRACE=arquivo grava um rastro quadro a quadro (para achar onde dois replays se separam).
 // (Mecanismo copiado do survivor e4314ee; o roteiro é deste jogo.)
 import { createHash } from 'node:crypto'
 
-export async function SimFingerprint(vite, frames = 2940) {
+export async function SimFingerprint(vite, frames = 3560) {
   // o motor de áudio registra teclas ao carregar; fora do navegador isso não existe
   globalThis.addEventListener ??= () => {}
   // sorteio e relógio fixos
@@ -44,7 +47,9 @@ export async function SimFingerprint(vite, frames = 2940) {
     const { BALANCE } = await load('/src/game/config/balance.js')
     const { events } = await load('/src/engine/core/events.js')
     let rolls = 0, safeFrames = 0
+    const locks = []
     events.on('roll', () => rolls++)
+    events.on('lock', ({ target }) => locks.push(target ? target.id : '-'))
 
     const scene = new THREE.Scene()
     SetGround(() => 0); SetDeepTest(TooDeep)
@@ -66,7 +71,16 @@ export async function SimFingerprint(vite, frames = 2940) {
     for (let f = 0; f < frames; f++) {
       now += dt * 1000
       let mx, mz, run = 0
-      if (f >= 2460) {
+      if (f >= 2940) {
+        // S4: [quadro]: [ação, mx, mz]; entre os apertos, o stick de cada trecho
+        const PRESS = { 2940: ['lock', 0, 0], 2945: ['lock-next', 0, 0], 2995: ['light', -1, 0], 3010: ['lock-prev', 0, 0], 3150: ['lock', 0, 0], 3400: ['lock', 0, 0] }
+        const pr = PRESS[f]
+        ;[mx, mz] = f < 2950 ? [0, 0] : f < 2990 ? [0.86, -0.51] : f < 3020 ? [0, 0] : f < 3140 ? [-0.7, 0.7] : f < 3160 ? [0, 0]
+          : f < 3400 ? toward({ x: -3, z: -10 }) : f < 3470 ? toward({ x: -9, z: -13 }) : [0, 0]
+        run = f >= 3020 && f < 3140 ? 1 : 0
+        game.setInput('local', { mx: pr ? pr[1] : mx, mz: pr ? pr[2] : mz, ax: 0, az: 0, run })
+        if (pr) game.act('local', pr[0])
+      } else if (f >= 2460) {
         // S3: [quadro]: [ação, mx, mz] — o stick no aperto decide a direção do golpe
         const spot = { x: 0, z: 3.7 }
         const PRESS = { 2645: ['light', 0, -1], 2647: ['light', 0, -1], 2654: ['light', 0, -1], 2664: ['light', 0, -1], 2700: ['heavy', 0, -1],
@@ -98,10 +112,10 @@ export async function SimFingerprint(vite, frames = 2940) {
       }
       game.update(dt)
       reg.UpdateDoors(dt, [...game.players.values()], [])
-      camera.update(dt, p)
+      camera.update(dt, p, p.lock)
       if (p.safe) safeFrames++
       const c = camera.cam.position
-      if (trace) trace.push(`${f} r${calls} ${p.x.toFixed(4)},${p.z.toFixed(4)},${p.gy.toFixed(3)},${p.lv},${p.stamina.toFixed(2)} cam ${c.x.toFixed(4)},${c.z.toFixed(4)} roll ${p.rollT.toFixed(3)}${p.safe ? ' safe' : ''}${p.running ? ' run' : ''}${p.atk ? ` atk ${p.atk.kind}${p.atk.n} ${p.atk.t.toFixed(3)}` : ''} dmg ${game.targets[0].dmg}`)
+      if (trace) trace.push(`${f} r${calls} ${p.x.toFixed(4)},${p.z.toFixed(4)},${p.gy.toFixed(3)},${p.lv},${p.stamina.toFixed(2)} cam ${c.x.toFixed(4)},${c.z.toFixed(4)} roll ${p.rollT.toFixed(3)}${p.safe ? ' safe' : ''}${p.running ? ' run' : ''}${p.atk ? ` atk ${p.atk.kind}${p.atk.n} ${p.atk.t.toFixed(3)}` : ''} dmg ${game.targets.map((e) => e.dmg).join('/')}${p.lock ? ` lock ${p.lock.id} lost ${p.lockLost.toFixed(2)} face ${p.facing.toFixed(2)}` : ''}`)
     }
     if (trace) (await import('node:fs')).writeFileSync(process.env.SIM_TRACE, trace.join('\n'))
     const r = (v) => (typeof v === 'number' ? Math.round(v * 1e6) / 1e6 : v)
@@ -109,7 +123,7 @@ export async function SimFingerprint(vite, frames = 2940) {
       players: [...game.players.values()].map((q) => [q.id, r(q.x), r(q.z), r(q.gy), q.lv, r(q.stamina), r(q.facing), q.tired]),
       door: door ? [r(door.x), r(door.z)] : null,
       camera: [r(camera.cam.position.x), r(camera.cam.position.y), r(camera.cam.position.z)],
-      rolls, safeFrames,
+      rolls, safeFrames, locks,
       targets: game.targets.map((e) => [e.id, e.hits, e.dmg, e.posture]),
     }
     const [, x, z, , lv, st] = state.players[0]

@@ -39,6 +39,12 @@ Cada PR acrescenta os itens dele aqui.
 | 27 | **Cancelar com rolamento**: golpe e logo depois do impacto toque Espaço | Rola na hora. Se tocar antes do impacto, o rolamento espera o impacto | ☐ |
 | 28 | **Guardar o próximo golpe**: clique de novo pouco antes do fim de um golpe | O próximo sai emendado. Clicando cedo demais, o clique é ignorado | ☐ |
 | 29 | **Fôlego**: bata sem parar | Cada golpe gasta verde; com qualquer verde ainda bate; sem verde, espera. Durante golpes e rolamentos o verde não volta | ☐ |
+| 30 | **Travar** (S4): perto dos bonecos, aperte Q (ou R3, apertando o stick direito) | Um círculo claro aparece no boneco mais perto para onde você olha, com um "tic". A câmera se afasta um pouco para mostrar os dois | ☐ |
+| 31 | **Andar travado** | Ele anda de lado e de costas, sempre de frente para o boneco | ☐ |
+| 32 | **Trocar de alvo**: roda do mouse (ou stick direito puxado para o lado) | O círculo pula para o outro boneco, do lado que você puxou | ☐ |
+| 33 | **Golpe travado**: com o stick apontando para outro lado, clique (ou RB) | O golpe vai no alvo travado | ☐ |
+| 34 | **Correr e rolar travado** | Correndo, ele vira para onde corre; rolando, rola para onde o stick aponta | ☐ |
+| 35 | **Soltar**: Q de novo; ou corra para longe; ou se esconda atrás da casa | Solta na hora; longe (18 m) solta sozinho; escondido, solta depois de 2 s | ☐ |
 
 ## Anotar o FPS
 O FPS aparece em verde no canto de cima, à direita. Anote depois de 1 minuto andando pela arena.

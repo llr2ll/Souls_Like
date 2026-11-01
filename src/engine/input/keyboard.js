@@ -38,7 +38,13 @@ export function BindKeyboard(game, map, id = 'local') {
   addEventListener('keyup', (e) => release(keyName(e)))
   addEventListener('mousedown', (e) => { if (active() && MOUSE[e.button]) press(MOUSE[e.button], false) })
   addEventListener('mouseup', (e) => { if (MOUSE[e.button]) release(MOUSE[e.button]) })
-  addEventListener('wheel', (e) => { if (active() && e.deltaY) { const a = map.press[e.deltaY < 0 ? 'wheel-up' : 'wheel-down']; if (a) game.act(id, a) } }, { passive: true })
+  // roda: no máximo uma ação a cada 0,2 s (o touchpad manda dezenas de eventos num gesto)
+  let wheelT = 0
+  addEventListener('wheel', (e) => {
+    if (!active() || !e.deltaY || performance.now() - wheelT < 200) return
+    const a = map.press[e.deltaY < 0 ? 'wheel-up' : 'wheel-down']
+    if (a) { wheelT = performance.now(); game.act(id, a) }
+  }, { passive: true })
   addEventListener('contextmenu', (e) => { if (active()) e.preventDefault() })
   addEventListener('blur', () => { down.clear(); push() })
 }
