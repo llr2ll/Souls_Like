@@ -41,6 +41,8 @@ npm run build    # gera dist/ (para hospedar)
      depois do impacto, golpes até zerar o fôlego. O hash conta golpes, dano e postura em cada alvo.
      S4 (98–118 s) trava, troca de alvo, anda de frente para ele, golpe com o stick para o outro lado (vai no alvo), corre para longe
      (solta), tenta travar longe (nada), trava e se esconde atrás da casa (solta em 2 s). O hash guarda a sequência de travadas.
+     S5 (118–140 s) "jogador robô" contra um Romeiro: rola na diagonal no fim de cada aviso e pune na janela, até matá-lo
+     (sem levar golpe: prova que rolar sempre funciona). Depois outro Romeiro, o robô parado com pouca vida morre e volta ao começo.
      **PR de organização tem de dar igual.** PR que muda a jogabilidade de propósito: `npm run check -- --update-sim` e dizer isso na descrição.
      Cada PR de jogabilidade acrescenta a sua cena ao roteiro. `SIM_TRACE=arquivo node scripts/sim.mjs` grava o rastro quadro a quadro.
 - `npm run smoke` — teste automático (~1 min). Compila, sobe a página na porta **5199**, abre no Chromium sem tela, anda com o teclado,
@@ -77,7 +79,9 @@ src/game/                 este jogo
   main.js                 liga tudo: renderer, luz, arena, câmera, teclado, controle, laço; Wire() conecta motor ↔ peças ↔ sons;
                           Impact() = tremor + vibração; Note() = aviso curto no alto da tela
   game.js                 estado e regras (sem desenhar: o replay roda isto sem navegador): botão de rolar/correr, rolamento
-  hud.js                  barras na tela (página, não 3D): fôlego
+  hud.js                  barras na tela (página, não 3D): vida, fôlego, vida do alvo travado
+  enemies/enemy.js        inimigo genérico: vê, geme, aproxima, avisa, golpeia, recua, espera, tropeça, morre, volta para casa
+  enemies/romeiro.js      Romeiro perdido: humanoide do survivor + bordão e foice, poses da pancada e dos dois cortes
   fx/trail.js             rastro da lâmina (só no instante de dano)
   fx/lock-mark.js         marca do alvo travado (círculo que pulsa, visível através das coisas)
   world/dummy.js          boneco de treino (pisca branco e balança ao levar golpe; não morre)
@@ -94,6 +98,8 @@ src/game/                 este jogo
 - Avisos (`engine/core/events.js`): as casas emitem `door-open`, `door-close`; o jogo toca o som.
   `hit` ({ by, target, kind: `light` | `heavy` }) → som + `Impact(kind)` em `main.js`: tremor de tela (só pesado) + vibração (`BALANCE.juice`).
   `swing` (a lâmina começou a cortar) → assobio. A pausa no impacto é do `game.js` (`stopT`: o `update` não roda; o desenho continua).
+  `hurt` ({ p, dmg, strong }) → som + `Impact('hurt' | 'hurtStrong')`; `death` → som + aviso "A névoa te levou"; `respawn`.
+  Inimigos: `enemy-alert` (gemido), `enemy-warn` ({ e, name }: som próprio de cada golpe), `enemy-swing`, `enemy-stagger`, `enemy-death`.
   `roll` e `roll-land` (o jogo avisa; `main.js` toca o impulso e o baque). Passos e respiração ofegante: `BodySounds()` em `main.js`.
 - Peças de `shared` recebem os números como parâmetro: `UpdatePlayerMovement(p, dt, colliders, BALANCE.move)`.
 
@@ -161,6 +167,14 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
   ou depois de 2 s sem ver (parede alta no meio; o boneco tem `h` baixo e não tapa). Travado e sem correr, o jogo manda `ax/az`
   na direção do alvo: o movimento copiado "mira" (anda de frente para o alvo, a `move.aim` m/s). Correr, rolar e golpear não miram.
   Golpe travado vai no alvo; rolamento vai para o stick.
+- Inimigos: o `main.js` põe os de `BALANCE.enemies` com `game.spawn(tipo, x, z, ry)`; o replay põe os dele na hora da cena (senão
+  eles atrapalhariam as cenas antigas). Golpe inimigo = aviso (`warn`) → golpes (`hits`, com `gap` entre eles) → `recover` (a janela).
+  No aviso gira até `warnTurn` graus/s; no golpe não gira; o alvo do golpe é travado no fim do aviso. Acerta se o jogador estiver no
+  alcance, na abertura, à vista e **não invulnerável** (`p.safe`). Levou golpe no aviso ou no golpe: não para (sem troca de golpes);
+  fora disso tropeça. As poses do golpe vão pelo `e.pose`/`e.poseW` do humanoide (mudança no `zombie-model.js`).
+- Jogador levou golpe: perde o golpe/rolamento em andamento, tropeça 0,35 s empurrado para trás (não age; ações apertadas ficam na
+  fila). Morreu: cai, e em 3,5 s volta ao começo com vida cheia; os inimigos renascem (provisório: o cruceiro e a cera chegam no S8).
+- Corpos não se atravessam (`separate()` em `game.js`: jogador e inimigos vivos se empurram).
 - O 3º leve é uma estocada nova no kit do Samurai (`thrust`); o pesado também é novo (`heavy`). O rastro (`fx/trail.js`) usa a ponta
   da espada (`model.muzzle`) e o meio do caminho até o peito.
 - `npm run check` roda no Windows também (o `sim.mjs` usa `pathToFileURL`).
@@ -187,3 +201,7 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
 - **s4-travar-alvo (S4)** — Q / botão do meio / R3 travam; roda do mouse e stick direito puxado para o lado trocam. Marca no alvo,
   câmera enquadrando os dois (afasta até 17 m), andar de frente para o alvo, golpe no alvo, solta a 18 m ou sem ver por 2 s.
   Segundo boneco em (4, 0). `BALANCE.lock`, `camera.lock*`, `move.aim` (3,4 m/s).
+- **s5-romeiro (S5)** — Romeiro perdido (`enemies/enemy.js` genérico + `enemies/romeiro.js`): pancada (aviso 0,5 s, gemido) e dois
+  cortes (aviso 0,45 s, rosnado), janela de punir, tropeço, morte (afunda no chão), volta para casa. Jogador leva golpe (tropeço,
+  empurrão, som, tremor, vibração), morre e volta ao começo. Barra de vida (com o pedaço perdido) e barra de vida sobre o alvo travado.
+  `zombie-model.js` ganhou pose vinda do jogo e mãos para armas. Um Romeiro na arena em (-8, 13).

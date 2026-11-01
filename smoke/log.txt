@@ -1,15 +1,16 @@
 [0s] 1/3 compilando o jogo…
 [1s] 2/3 subindo a página…
 [2s] 3/3 abrindo o jogo no navegador sem tela…
-[4s]    jogo desenhando (FPS: 1)
+[4s]    jogo desenhando (FPS: 8)
 [4s]    jogando 40 s…
-[5s]    captura 01-inicio.jpg
-[9s]    captura 02-golpe.jpg
-[11s]    captura 03-trava.jpg
-[14s]    captura 04-rolando.jpg
-[22s]    captura 05-casa.jpg
-[25s]    captura 06-controle.jpg
-[29s]    captura 07-folego.jpg
-[45s]    captura 08-fim.jpg
+[4s]    captura 01-inicio.jpg
+[8s]    captura 02-golpe.jpg
+[10s]    captura 03-trava.jpg
+[13s]    captura 04-rolando.jpg
+[21s]    captura 05-casa.jpg
+[24s]    captura 06-controle.jpg
+[28s]    captura 07-folego.jpg
+[35s]    captura 08-romeiro.jpg
+[45s]    captura 09-fim.jpg
 
 PASSOU

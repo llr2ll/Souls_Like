@@ -52,6 +52,8 @@ Exemplos:
   A "travadinha" no acerto é `juice.hitStop` (0 desliga); o rastro da lâmina é `juice.trail`.
 - Travar no alvo: alcance e distância de soltar em `lock`. Quanto a câmera se afasta travada: `lockMax` em `camera`.
   Andar travado mais rápido: `aim` em `move`.
+- Romeiro: tudo em `romeiro` (vida, velocidade, quanto enxerga). Cada golpe dele em `attacks`: `warn` é o aviso (mais alto = mais
+  fácil), `recover` é a janela para punir, `dmg` o dano. Onde ele fica na arena: `enemies`.
 
 ## Como testar
 - Depois de cada PR: siga `docs/TESTE-MANUAL.md` (poucos minutos).

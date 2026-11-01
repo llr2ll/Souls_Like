@@ -4,19 +4,26 @@ import { HitWall } from '../engine/world/collision'
 import { CreatePlayerModel } from '../shared/characters/player'
 import { UpdatePlayerMovement } from '../shared/characters/player-movement'
 import { CreateDummy } from './world/dummy'
+import { CreateRomeiro } from './enemies/romeiro'
 import { BALANCE } from './config/balance'
 
 // Estado e regras do jogo (sem desenhar: o replay do npm run check roda isto sem navegador).
 // S2: fôlego, correr e rolar. S3: golpe leve (combo de 3) e pesado contra bonecos de treino. S4: travar no alvo.
+// S5: inimigos (Romeiro perdido), levar golpe, morrer e voltar ao começo.
 // Avisos (engine/core/events.js) para o main.js tocar som e tremer: 'roll', 'roll-land', 'swing' (lâmina começou a cortar),
-// 'hit' (golpe acertou: { by, target, kind }), 'lock' (travou, trocou ou soltou: { p, target }).
+// 'hit' (golpe acertou: { by, target, kind }), 'lock' (travou, trocou ou soltou: { p, target }),
+// 'hurt' (jogador levou golpe: { p, dmg, strong }), 'death' (jogador morreu), 'respawn'. Os inimigos avisam 'enemy-*' (enemies/enemy.js).
 const DEG = Math.PI / 180
 const wrap = (a) => { a = (a + Math.PI) % (Math.PI * 2); if (a < 0) a += Math.PI * 2; return a - Math.PI }
+const KINDS = { romeiro: CreateRomeiro }
+const PLAYER_R = 0.45
 
 export function CreateGame(scene) {
   const players = new Map()
-  const PL = BALANCE.player, R = BALANCE.roll, AT = BALANCE.attack, LK = BALANCE.lock
-  const targets = BALANCE.dummies.map((d) => CreateDummy(scene, d.x, d.z)) // o que pode levar golpe (inimigos entram no S5)
+  const PL = BALANCE.player, R = BALANCE.roll, AT = BALANCE.attack, LK = BALANCE.lock, HU = BALANCE.hurt
+  const dummies = BALANCE.dummies.map((d) => CreateDummy(scene, d.x, d.z))
+  const enemies = []
+  const targets = [...dummies] // o que pode levar golpe: bonecos e inimigos
   let stopT = 0 // pausa no impacto: o jogo fica parado enquanto > 0
   // velocidade no começo do rolamento: ela cai em curva (cosseno) até parar no fim, andando R.distance
   const rollPeak = () => (Math.PI * R.distance) / (2 * R.time)
@@ -36,7 +43,15 @@ export function CreateGame(scene) {
       rollT: -1, rollA: 0, rollLand: false, safe: false, // safe = invulnerável agora
       atk: null, comboN: 0, comboT: 0, // golpe em andamento; próximo leve do combo e quanto tempo ele ainda emenda
       lock: null, lockLost: 0, // alvo travado; há quanto tempo não o vê
+      hurtT: 0, kbx: 0, kbz: 0, deadT: 0, // tropeço (tempo e empurrão); morto há quanto tempo
     })
+  }
+  // inimigos: o jogo (main.js) põe os da arena; o replay põe na hora da cena dele
+  const ctx = { players, sees: (a, b) => sees(a, b), hurt: (p, dmg, dir, by, strong) => hurtPlayer(p, dmg, dir, by, strong) }
+  function spawn(kind, x, z, ry = 0) {
+    const e = KINDS[kind](scene, x, z, ry, ctx)
+    enemies.push(e); targets.push(e)
+    return e
   }
   function removePlayer(id) {
     const p = players.get(id)
@@ -99,10 +114,10 @@ export function CreateGame(scene) {
     }
     return best
   }
-  // vê o alvo? (nenhuma parede alta no caminho; pedra baixa não tapa)
-  function sees(p, e) {
-    const dx = e.x - p.x, dz = e.z - p.z, d = Math.hypot(dx, dz)
-    for (let s = 0.6; s < d - e.r - 0.2; s += 0.5) if (HitWall(p.x + (dx / d) * s, p.z + (dz / d) * s, p.lv)) return false
+  // a vê b? (nenhuma parede alta no caminho; pedra baixa não tapa). Vale para jogador → alvo e inimigo → jogador
+  function sees(a, b) {
+    const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz)
+    for (let s = 0.6; s < d - (b.r || PLAYER_R) - 0.2; s += 0.5) if (HitWall(a.x + (dx / d) * s, a.z + (dz / d) * s, a.lv || 0)) return false
     return true
   }
   function updateLock(p, dt) {
@@ -115,8 +130,34 @@ export function CreateGame(scene) {
   const rolling = (p) => p.rollT >= 0
   const spend = (p, n) => { p.stamina = Math.max(0, p.stamina - n); p.restT = 0 } // qualquer fôlego acima de 0 basta; ele zera
   // rolar: não rolando e, se atacando, só depois do impacto (o rolamento é o único que cancela um golpe)
-  const canRoll = (p) => !rolling(p) && p.stamina > 0 && (!p.atk || p.atk.t >= p.atk.def.hit[1])
-  const canAttack = (p) => !rolling(p) && !p.atk && p.stamina > 0
+  const free = (p) => !p.dead && p.hurtT <= 0 // tropeçando ou morto não age
+  const canRoll = (p) => free(p) && !rolling(p) && p.stamina > 0 && (!p.atk || p.atk.t >= p.atk.def.hit[1])
+  const canAttack = (p) => free(p) && !rolling(p) && !p.atk && p.stamina > 0
+
+  // ---- levar golpe ----
+  // devolve true se acertou (rolando invulnerável ou morto: não acerta)
+  function hurtPlayer(p, dmg, dir, by, strong) {
+    if (p.dead || p.safe) return false
+    p.hp = Math.max(0, p.hp - dmg)
+    // tropeço: perde o golpe/rolamento em andamento e é empurrado para trás
+    p.atk = null; p.rollT = -1; p.safe = false; p.comboN = 0
+    p.hurtT = HU.stagger; p.kbx = Math.sin(dir) * HU.push; p.kbz = Math.cos(dir) * HU.push
+    p.model.play('stagger', 0.05) // corta a animação do golpe/rolamento que estava no meio
+    p.model.hurt()
+    events.emit('hurt', { p, dmg, by, strong })
+    if (p.hp <= 0) {
+      p.dead = true; p.deadT = 0; p.hurtT = 0; p.lock = null; p.queue = null; p.dashT = 0
+      p.model.die()
+      events.emit('death', p)
+    }
+    return true
+  }
+  // voltar ao começo (o cruceiro chega no S8): vida e fôlego cheios, inimigos de volta ao lugar
+  function respawn(p) {
+    Object.assign(p, { x: PL.start.x, z: PL.start.z, vx: 0, vz: 0, facing: Math.PI, hp: p.max, stamina: p.staminaMax, dead: false, deadT: 0, tired: false })
+    for (const e of enemies) e.reset()
+    events.emit('respawn', p)
+  }
 
   function startRoll(p, a) {
     p.rollA = a
@@ -137,7 +178,7 @@ export function CreateGame(scene) {
   function strike(p, A) {
     const d = A.def
     for (const e of targets) {
-      if (A.hit.has(e)) continue
+      if (A.hit.has(e) || e.dead) continue
       const dx = e.x - p.x, dz = e.z - p.z
       if (Math.hypot(dx, dz) - e.r > d.range) continue
       const dir = Math.atan2(dx, dz)
@@ -150,6 +191,12 @@ export function CreateGame(scene) {
   }
 
   function updatePlayer(p, dt) {
+    if (p.dead) {
+      p.vx = p.vz = 0; p.speed = 0
+      if ((p.deadT += dt) >= HU.respawn) respawn(p)
+      p.model.animate(dt, p)
+      return
+    }
     // botão de rolar/correr: soltar antes de R.tap = rolar; segurar mais = correr
     if (p.raw.run) p.dodgeT += dt
     else { if (p.dodgeT > 0 && p.dodgeT < R.tap) queue(p, 'roll'); p.dodgeT = 0 }
@@ -160,8 +207,14 @@ export function CreateGame(scene) {
       else if ((q.t -= dt) <= 0) p.queue = null
     }
     // rolando ou atacando, o corpo segue o roteiro (a "investida" do movimento copiado: dashT/dashA/dashV)
-    const roll = rolling(p), A = p.atk
-    if (roll) {
+    const roll = rolling(p), A = p.atk, hurt = p.hurtT > 0
+    if (hurt) {
+      // tropeço: empurrado para trás, perdendo força até parar
+      const k = p.hurtT / HU.stagger
+      p.dashT = 1; p.dashA = Math.atan2(p.kbx, p.kbz); p.dashV = Math.hypot(p.kbx, p.kbz) * k
+      p.hurtT -= dt
+      if (p.hurtT <= 0) p.dashT = 0
+    } else if (roll) {
       p.dashT = 1; p.dashA = p.rollA; p.dashV = rollPeak() * Math.cos((p.rollT / R.time) * Math.PI / 2)
       p.safe = p.rollT >= R.safe[0] && p.rollT < R.safe[1]
     } else if (A) {
@@ -171,13 +224,15 @@ export function CreateGame(scene) {
     if (roll || A) p.restT = 0 // rolando ou atacando o fôlego não volta: a espera de 0,5 s conta do fim da ação
     updateLock(p, dt)
     Object.assign(p.input, p.raw)
-    p.input.run = !roll && !A && p.dodgeT >= R.tap ? 1 : 0
+    p.input.run = !roll && !A && !hurt && p.dodgeT >= R.tap ? 1 : 0
     // travado e sem correr: anda de frente para o alvo (de lado, de costas). O movimento copiado chama isso de "mirar"
-    // (rolando ou atacando, o corpo segue a direção da ação)
-    if (p.lock && !p.input.run && !roll && !A) { const a = toward(p, p.lock); p.input.ax = Math.sin(a); p.input.az = Math.cos(a) }
+    // (rolando, atacando ou tropeçando, o corpo segue a ação)
+    if (p.lock && !p.input.run && !roll && !A && !hurt) { const a = toward(p, p.lock); p.input.ax = Math.sin(a); p.input.az = Math.cos(a) }
     UpdatePlayerMovement(p, dt, null, BALANCE.move)
 
-    if (roll) {
+    if (hurt) {
+      // nada: o tropeço já andou acima
+    } else if (roll) {
       p.rollT += dt
       if (!p.rollLand && p.rollT >= R.time * 0.75) { p.rollLand = true; events.emit('roll-land', p) }
       if (p.rollT >= R.time) { p.rollT = -1; p.dashT = 0; p.safe = false }
@@ -196,12 +251,24 @@ export function CreateGame(scene) {
     p.model.animate(dt, p)
   }
 
+  // corpos não se atravessam: jogador e inimigos vivos se empurram (metade para cada um)
+  function separate() {
+    const bodies = [...players.values(), ...enemies].filter((b) => !b.dead)
+    for (let i = 0; i < bodies.length; i++) for (let j = i + 1; j < bodies.length; j++) {
+      const a = bodies[i], b = bodies[j], dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz), min = (a.r || PLAYER_R) + (b.r || PLAYER_R)
+      if (d >= min || d < 1e-6) continue
+      const push = (min - d) / 2
+      a.x -= (dx / d) * push; a.z -= (dz / d) * push; b.x += (dx / d) * push; b.z += (dz / d) * push
+    }
+  }
+
   function update(dt) {
     if (stopT > 0) { stopT -= dt; return } // pausa no impacto: tudo parado (o desenho continua)
     for (const p of players.values()) updatePlayer(p, dt)
     for (const e of targets) e.update(dt)
+    separate()
   }
   function clear() { for (const id of [...players.keys()]) removePlayer(id) }
 
-  return { players, targets, addPlayer, removePlayer, setInput, act, update, clear }
+  return { players, targets, enemies, addPlayer, removePlayer, spawn, setInput, act, update, clear }
 }

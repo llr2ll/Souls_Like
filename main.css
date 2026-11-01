@@ -7,6 +7,13 @@ html, body { height: 100%; margin: 0; background: #15120f; overflow: hidden; fon
 #note.on { opacity: 1 }
 #bars { position: absolute; top: 16px; left: 18px }
 .bar { height: 9px; margin-bottom: 5px; background: #0008; border: 1px solid #000a; box-shadow: 0 1px 3px #0008 }
+.bar { position: relative }
 .bar i { display: block; height: 100%; transition: width .08s linear }
+.bar.hp { height: 11px }
+.hp i { position: absolute; left: 0; top: 0 }
+.hp .lag { background: #f2d9a6; transition: none }
+.hp .fill { background: linear-gradient(#d4503c, #8c2418) }
 .stamina i { background: linear-gradient(#7fcf5a, #3f8f2c) }
 .stamina.tired i { background: linear-gradient(#5a6f4e, #34432c) }
+#target-bar { display: none; position: absolute; width: 70px; height: 5px; margin-left: -35px; background: #000a; border: 1px solid #000c }
+#target-bar .fill { display: block; height: 100%; background: #c9452f }
