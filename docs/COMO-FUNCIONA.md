@@ -73,6 +73,8 @@ Exemplos:
   Tempo da tela escura ao morrer: `hurt.respawn`.
 - O vale: em `maps` → `demo` ficam a largada, os cruceiros, onde cada romeiro fica, os pães e os textos dos achados
   (dá para reescrever os textos ali). O desenho do lugar (muros, casas, árvores) fica em `src/game/world/santa-baia.js`.
+- Trasno, fondeiro e Lobishome: `trasno`, `fondeiro`, `lobishome` (vida, velocidade, dano, avisos). Ex.: o fondeiro atira menos
+  vezes aumentando `wait`; o salto do Lobishome derruba (`strong`); o uivo acontece quando a vida cai abaixo de `howlAt`.
 
 ## Como testar
 - Depois de cada PR: siga `docs/TESTE-MANUAL.md` (poucos minutos).

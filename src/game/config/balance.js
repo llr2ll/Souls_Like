@@ -96,11 +96,51 @@ export const BALANCE = {
     hum: 30, // o zumbido baixo que guia até a vela se ouve até essa distância (m)
   },
 
+  // Trasno (DESIGN 5): pequeno, rápido, em grupo. Salta em você; pegou: rouba cera e foge. Errou: fica preso no chão (a janela)
+  trasno: {
+    hp: 20, posture: 12, r: 0.3, cera: 15, scale: 0.55,
+    walk: 2.6, turn: 6, sight: 9, forget: 16, leash: 20, alert: 0.4,
+    reach: 5.2, // salta de até essa distância
+    wait: [0.6, 1.4], stagger: 0.3, sink: 3, broken: 1.6, parryBreak: 1,
+    fleeSpeed: 4.2, fleeTime: 6, // roubou: foge por tanto tempo, depois volta para casa com a cera (matar devolve; descansar perde)
+    attacks: {
+      // salto: agacha com risadinha (aviso), voa ~5 m; acertou = rouba 10% da cera; errou = 0,7 s preso no chão
+      leap: { warn: 0.4, warnTurn: 220, hits: [0.45], leap: 5, leapH: 1.3, dmg: 8, range: 1.0, arc: 180, recover: 0.7, steal: 0.1 },
+    },
+  },
+  // Fondeiro (DESIGN 5): atirador de funda. Uma pedra a cada ~2,5 s; dá para bloquear com o escudo ou rolar. Perto: chuta e foge
+  fondeiro: {
+    hp: 30, posture: 15, r: 0.42, cera: 25,
+    walk: 1.7, turn: 4, sight: 18, forget: 22, leash: 10, alert: 0.5,
+    reach: 15, // atira de até essa distância (vendo você)
+    needSight: true, kickRange: 2.6, // abaixo dessa distância chuta em vez de atirar
+    wait: [1.6, 1.8], stagger: 0.35, sink: 4, broken: 2, parryBreak: 1, fleeSpeed: 3.2,
+    attacks: {
+      sling: { warn: 0.7, warnTurn: 160, hits: [0.1], projectile: { speed: 18, dmg: 12, life: 1.2 }, recover: 0.1 }, // zunido que sobe e atira
+      kick: { warn: 0.4, warnTurn: 180, hits: [0.15], dmg: 12, range: 1.7, arc: 60, recover: 1.2, flee: 2.5, lunge: 0.3 },
+    },
+  },
+  // Lobishome (DESIGN 5, elite): não renasce. Meia distância força o salto; aparar o zarpaço quebra metade da postura
+  lobishome: {
+    hp: 220, posture: 90, r: 0.6, cera: 400, scale: 1.3, unique: true,
+    walk: 2.3, turn: 4.5, sight: 12, forget: 24, leash: 24, alert: 1.0,
+    reach: 7.5, clawRange: 2.8, // salta de até 7,5 m; abaixo de 2,8 m dá o zarpaço
+    howlAt: 0.75, // uiva (chama 2 trasnos) quando a vida cai abaixo disso (fração); uma vez por luta
+    wait: [0.5, 1.0], stagger: 0.25, sink: 5, broken: 2.5, parryBreak: 0.5,
+    attacks: {
+      claws: { warn: 0.45, warnTurn: 180, hits: [0.12, 0.12], gap: 0.18, dmg: 18, range: 2.4, arc: 70, recover: 0.9 }, // zarpaço duplo
+      pounce: { warn: 0.6, warnTurn: 180, hits: [0.5], leap: 7, leapH: 1.6, dmg: 28, strong: true, range: 1.5, arc: 180, recover: 1.0 }, // salto
+      howl: { warn: 1.0, warnTurn: 0, hits: [0.05], recover: 0.3, summon: { kind: 'trasno', n: 2 } }, // uivo
+    },
+  },
+
   // Levar golpe (DESIGN 3.3)
   hurt: {
     stagger: 0.35, // tropeço: tanto tempo (s) sem poder agir
     push: 2.5, // empurrão para trás no tropeço (m/s no começo)
     respawn: 4, // morreu: tela escura e, depois de tanto tempo (s), volta no último cruceiro
+    down: 0.9, // golpe forte (DESIGN 3.3): caído no chão por tanto tempo (s)
+    getUp: 0.4, // ... e levantando, invulnerável, por tanto tempo (s)
   },
 
   // Romeiro perdido (DESIGN 5). Golpes: warn = aviso (s), hits = duração de cada golpe (s), gap = pausa entre golpes,
@@ -220,6 +260,13 @@ export const BALANCE = {
         { kind: 'romeiro', x: 30, z: -14, ry: 0 }, { kind: 'romeiro', x: 42, z: -14.5, ry: 0 },
         { kind: 'romeiro', x: 30.5, z: -28, ry: Math.PI }, { kind: 'romeiro', x: 41.5, z: -27.5, ry: Math.PI },
         { kind: 'romeiro', x: 32, z: -42, ry: 0 }, { kind: 'romeiro', x: 42, z: -46, ry: 0 },
+        // S10: trasnos (rua de cima 2, souto 3), fondeiros (rua de cima 1, escada da igreja 1, alto da subida 2) e o Lobishome
+        { kind: 'trasno', x: -7, z: 11, ry: Math.PI }, { kind: 'trasno', x: -40, z: -4.5, ry: Math.PI / 2 },
+        { kind: 'fondeiro', x: -47, z: 1, ry: Math.PI / 2 },
+        { kind: 'fondeiro', x: 12, z: -8.6, ry: 0 },
+        { kind: 'fondeiro', x: 30, z: -53, ry: 0 }, { kind: 'fondeiro', x: 44, z: -53.5, ry: 0 },
+        { kind: 'trasno', x: -20, z: -30, ry: 0 }, { kind: 'trasno', x: -8, z: -33, ry: 0.5 }, { kind: 'trasno', x: -27, z: -40, ry: -0.5 },
+        { kind: 'lobishome', x: -14, z: -44, ry: 0 },
       ],
       // itens no chão (E/A para pegar): pão de milho (cura) e achados (texto curto). Pegou: não volta (fica no save)
       items: [
@@ -230,7 +277,9 @@ export const BALANCE = {
           text: 'Peregrino: trava o olhar no morto (Q ou R3). Espera o golpe, rola para o lado (Espaço ou B) e castiga enquanto ele se recompõe.' },
         { id: 'achado-lume', kind: 'note', x: -24, z: 32.5, title: 'Credencial manchada',
           text: 'Dois carimbos de Ourense, nenhum depois da ponte. No verso: "Esperei meu irmão três dias."' },
-        { id: 'achado-ferreiro', kind: 'note', x: -33, z: -5.5, title: 'Bilhete na porta do ferreiro',
+        // anaco de cabaça: no andar de cima da casa do ferreiro (o lugar exato vem do cenário: anchor)
+        { id: 'anaco-ferreiro', kind: 'gourd', anchor: 'anaco', title: 'Anaco de cabaça' },
+        { id: 'achado-ferreiro', kind: 'note', x: -27.5, z: 5.2, title: 'Bilhete na porta do ferreiro',
           text: 'Fechei por dentro. Quem passar, não bata. O caminho de cima eu abro quando a névoa baixar.' },
         { id: 'achado-adro', kind: 'note', x: 1.5, z: -21, title: 'Lápide',
           text: 'Aqui descansa quem chegou cedo demais. Rezai pelos que ainda andam.' },
@@ -240,8 +289,15 @@ export const BALANCE = {
           text: 'Irmão: a alavanca do portão sul fica junto ao muro, à direita de quem sai. Não abras para ninguém de fora.' },
       ],
       // atalhos (DESIGN 4): alavanca de um lado abre o portão; do outro lado ele não abre
+      // lever = onde se abre (label: o que aparece na tela); outside = do lado que não abre (locked: o aviso)
       shortcuts: [
         { id: 'portao', name: 'portão do mosteiro', lever: { x: 32.4, z: -10.2 }, gate: { x: 36, z: -8, w: 4 }, outside: { x: 36, z: -5.6 } },
+        // atalho 1: o quintal do ferreiro abre por dentro (rua de cima) e devolve você à rua de baixo
+        { id: 'ferreiro', name: 'portão do quintal do ferreiro', label: 'Tirar a tranca do portão', lever: { x: -22.4, z: 13.6 },
+          gate: { x: -24, z: 15, w: 2 }, outside: { x: -24, z: 16.8 } },
+        // atalho 3: do souto, a escada do hórreo desce para a rua de cima (de baixo é alto demais)
+        { id: 'horreo', name: 'escada do hórreo', label: 'Baixar a escada do hórreo', lever: { x: -45.6, z: -17.8 },
+          gate: { x: -44, z: -16, w: 4 }, outside: { x: -44, z: -14.2 }, locked: 'Alto demais. Não dá para subir daqui.' },
       ],
       // névoa na entrada do castro: não passa até o chefe chegar (S11)
       fogs: [{ id: 'castro', x: 32, z: -56, w: 4 }],

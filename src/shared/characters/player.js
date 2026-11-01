@@ -166,7 +166,7 @@ export function CreatePlayerModel(cls = 'gunner', opts = {}) {
     const lk = lift * lift * (3 - 2 * lift)
     gourd.visible = act === 'drink'; bread.visible = act === 'eat'
     heldW = damp(heldW, p.held ? 1 : 0, 8, dt) // agarrado: se debatendo
-    if (p.dead) fall = Math.min(1, fall + dt * (0.6 + fall * 4)) // cai acelerando
+    if (p.dead || p.down) fall = Math.min(1, fall + dt * (0.6 + fall * 4) * (p.down ? 2.5 : 1)) // cai acelerando (golpe forte: cai rápido e levanta)
     else fall = damp(fall, 0, 5, dt)
 
     // ---- direção das pernas em relação ao tronco (andar de lado / de costas mirando) ----

@@ -230,6 +230,11 @@ const S = {
   supply: [0, 1, (o, t) => { thud(o, t, 0.6); [74, 79, 83].forEach((m, i) => bell(o, t + 0.12 + i * 0.08, midi(m), 0.18, 0.5)) }],
   // souls-like (S8): zumbido baixo da vela da morte, que guia até ela
   candle: [30, 1.7, (o, t) => { tone(o, t, { type: 'triangle', f: 196, dur: 1.5, a: 0.5, vol: 0.08 }); tone(o, t, { f: 98, dur: 1.5, a: 0.6, vol: 0.12 }) }],
+  // souls-like (S10): risadinha do trasno, zunido da funda (sobe), uivo do Lobishome, pedra batendo
+  giggle: [24, 0.6, (o, t) => { for (let i = 0; i < 4; i++) vocal(o, t + i * 0.09, { f: rnd(430, 520), f1: rnd(380, 450), dur: 0.07, a: 0.005, vol: 0.26, form: [900, 2200], rough: 1, breath: 0.3 }) }],
+  whir: [34, 0.8, (o, t) => { hiss(o, t, { dur: 0.7, a: 0.55, vol: 0.38, f: 300, f1: 1500, q: 7 }); hiss(o, t, { dur: 0.7, a: 0.6, vol: 0.12, type: 'highpass', f: 2500 }) }],
+  howl: [70, 1.5, (o, t) => vocal(o, t, { f: 210, f1: 430, dur: 1.15, a: 0.25, vol: 0.6, form: [600, 1000], rough: 2, breath: 0.3, wob: 5, depth: 0.04 })],
+  stone: [20, 0.3, (o, t) => { thud(o, t, 0.3); click(o, t, 900, 0.3) }],
 }
 
 // toca um efeito. o: { x, z, vol, delay, ...parâmetros da receita }

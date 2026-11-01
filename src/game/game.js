@@ -1,3 +1,4 @@
+import * as THREE from 'three'
 import { ApplyInput } from '../engine/input/contract'
 import { events } from '../engine/core/events'
 import { HitWall } from '../engine/world/collision'
@@ -5,6 +6,9 @@ import { CreatePlayerModel } from '../shared/characters/player'
 import { UpdatePlayerMovement } from '../shared/characters/player-movement'
 import { CreateDummy } from './world/dummy'
 import { CreateRomeiro } from './enemies/romeiro'
+import { CreateTrasno } from './enemies/trasno'
+import { CreateFondeiro } from './enemies/fondeiro'
+import { CreateLobishome } from './enemies/lobishome'
 import { CreateProgress } from './progress'
 import { BALANCE } from './config/balance'
 
@@ -17,9 +21,12 @@ import { BALANCE } from './config/balance'
 // S6: 'block' (o escudo segurou), 'guard-break' (fôlego zerou segurando), 'parry-try' (começou a aparar), 'parry' (aparou).
 // S7: 'use' (começou a beber/comer: { p, what }), 'healed' (a cura entrou), 'use-lost' (levou golpe antes), 'use-empty' (acabou).
 // S8: cruceiros, cera, vela da morte e save ficam em progress.js (avisos de lá: 'rest', 'cera', 'candle', 'save'…).
+// S10: 'stone' (pedra de funda saiu: { x, z }), 'stone-wall' (bateu na parede), 'cera-stolen' ({ e, n }), 'summon' ({ e, kind }),
+// 'knockdown' (golpe forte derrubou o jogador).
 const DEG = Math.PI / 180
 const wrap = (a) => { a = (a + Math.PI) % (Math.PI * 2); if (a < 0) a += Math.PI * 2; return a - Math.PI }
-const KINDS = { romeiro: CreateRomeiro }
+const KINDS = { romeiro: CreateRomeiro, trasno: CreateTrasno, fondeiro: CreateFondeiro, lobishome: CreateLobishome }
+const STONE_GEO = new THREE.DodecahedronGeometry(0.09, 0), STONE_MAT = new THREE.MeshLambertMaterial({ color: 0x8d8f99, flatShading: true })
 const PLAYER_R = 0.45
 
 // map = o mapa em jogo (BALANCE.maps.*): largada, bonecos, cruceiros, itens, atalhos. Os inimigos o main.js (ou o replay) põe.
@@ -58,15 +65,56 @@ export function CreateGame(scene, map = BALANCE.maps.arena, world) {
       gourd: BALANCE.gourd.sips, gourdMax: BALANCE.gourd.sips, bread: map.bread ?? BALANCE.bread.start, // goles e pães
       use: null, useT: -1, healed: false, // bebendo ('drink') ou comendo ('eat'); há quanto tempo; a cura já entrou?
       cera: 0, home: null, safeX: START.x, safeY: 0, safeZ: START.z, // cera; último cruceiro; último chão firme (a vela fica ali)
+      down: false, downT: 0, // caído por golpe forte (e o tempo que falta, contando o levantar)
     })
   }
-  // inimigos: o jogo (main.js) põe os da arena; o replay põe na hora da cena dele
-  const ctx = { players, sees: (a, b) => sees(a, b), hurt: (p, dmg, dir, by, strong) => hurtPlayer(p, dmg, dir, by, strong) }
-  // opts: { sit } (sentado até ver o jogador)
+  // inimigos: o jogo (main.js) põe os do mapa; o replay põe na hora da cena dele
+  const ctx = {
+    players, sees: (a, b) => sees(a, b), hurt: (p, dmg, dir, by, strong) => hurtPlayer(p, dmg, dir, by, strong),
+    shoot: (e, a, def) => shoot(e, a, def.projectile),
+    // o trasno roubou: uma fração da cera vai com ele (matar devolve; descansar antes perde)
+    steal(e, p, f) { const n = Math.floor(p.cera * f); if (n <= 0) return; p.cera -= n; e.stolen += n; events.emit('cera-stolen', { e, n }) },
+    // chama ajuda (uivo do Lobishome): aparecem perto dele, já atrás do jogador; somem no próximo descanso
+    summon(e, kind, n) {
+      for (let i = 0; i < n; i++) {
+        const a = e.facing + (i ? 2.2 : -2.2), x = e.x + Math.sin(a) * 2.5, z = e.z + Math.cos(a) * 2.5
+        const s = spawn(kind, x, z, e.facing, { temp: true })
+        s.target = e.target; s.state = 'alert'; s.stT = 0
+        events.emit('summon', { e: s, kind })
+      }
+    },
+  }
+  // opts: { sit } (sentado até ver o jogador), { temp } (chamado por outro: some no próximo descanso)
   function spawn(kind, x, z, ry = 0, opts = {}) {
     const e = KINDS[kind](scene, x, z, ry, ctx, opts)
+    if (opts.temp) { e.temp = true; e.reset = () => { e.dead = true; e.dying = 1; e.state = 'dead'; e.stT = 99; e.model.root.visible = false } }
     enemies.push(e); targets.push(e)
     return e
+  }
+
+  // ---- pedras de funda: voam reto; o escudo de frente segura; rolando passam; parede para ----
+  const stones = []
+  function shoot(e, a, P) {
+    const m = new THREE.Mesh(STONE_GEO, STONE_MAT)
+    const s = { x: e.x + Math.sin(a) * 0.6, z: e.z + Math.cos(a) * 0.6, y: e.y + 1.5, vx: Math.sin(a) * P.speed, vz: Math.cos(a) * P.speed, life: P.life, dmg: P.dmg, by: e, m }
+    m.position.set(s.x, s.y, s.z)
+    scene.add(m)
+    stones.push(s)
+    events.emit('stone', { x: s.x, z: s.z })
+  }
+  function updateStones(dt) {
+    for (let i = stones.length - 1; i >= 0; i--) {
+      const s = stones[i]
+      s.x += s.vx * dt; s.z += s.vz * dt; s.life -= dt
+      s.m.position.set(s.x, s.y, s.z); s.m.rotation.x += dt * 12
+      let gone = s.life <= 0
+      if (!gone && HitWall(s.x, s.z, 0)) { gone = true; events.emit('stone-wall', { x: s.x, z: s.z }) }
+      if (!gone) for (const p of players.values()) {
+        if (p.dead || Math.hypot(p.x - s.x, p.z - s.z) > PLAYER_R + 0.15) continue
+        if (hurtPlayer(p, s.dmg, Math.atan2(s.vx, s.vz), s.by, false, true)) gone = true
+      }
+      if (gone) { scene.remove(s.m); stones.splice(i, 1) }
+    }
   }
   function removePlayer(id) {
     const p = players.get(id)
@@ -148,7 +196,7 @@ export function CreateGame(scene, map = BALANCE.maps.arena, world) {
   const spend = (p, n) => { p.stamina = Math.max(0, p.stamina - n); p.restT = 0 } // qualquer fôlego acima de 0 basta; ele zera
   // rolar: não rolando e, se atacando, só depois do impacto (o rolamento é o único que cancela um golpe)
   // tropeçando, atordoado, aparando, bebendo/comendo ou morto não age
-  const free = (p) => !p.dead && p.hurtT <= 0 && p.stunT <= 0 && p.parryT < 0 && !p.use
+  const free = (p) => !p.dead && p.hurtT <= 0 && p.stunT <= 0 && p.parryT < 0 && !p.use && p.downT <= 0
   const canRoll = (p) => free(p) && !rolling(p) && p.stamina > 0 && (!p.atk || p.atk.t >= p.atk.def.hit[1])
   const canAttack = (p) => free(p) && !rolling(p) && !p.atk && p.stamina > 0
 
@@ -156,15 +204,17 @@ export function CreateGame(scene, map = BALANCE.maps.arena, world) {
   // dir = direção do golpe (de quem bate para o jogador). Devolve o que aconteceu: false (não acertou: rolando ou morto),
   // 'parry' (aparou: o inimigo perde a postura), 'block' (o escudo segurou) ou 'hit'
   const facesIt = (p, dir, arc) => Math.abs(wrap(dir + Math.PI - p.facing)) <= arc * DEG // de frente para quem bate?
-  function hurtPlayer(p, dmg, dir, by, strong) {
+  // ranged = pedra (não se apara pedra: aparando de frente, ela conta como bloqueio)
+  function hurtPlayer(p, dmg, dir, by, strong, ranged = false) {
     if (p.dead || p.safe) return false
-    if (p.parryT >= 0 && p.parryT <= PA.window && facesIt(p, dir, GU.arc)) {
+    const parrying = p.parryT >= 0 && p.parryT <= PA.window && facesIt(p, dir, GU.arc)
+    if (parrying && !ranged) {
       p.parryT = -1 // aparou: volta a agir na hora
       slowT = PA.slow
       events.emit('parry', { p, by })
       return 'parry'
     }
-    if (p.guard && facesIt(p, dir, GU.arc)) {
+    if ((p.guard || parrying) && facesIt(p, dir, GU.arc)) {
       p.stamina -= dmg * GU.cost; p.restT = 0
       p.kbx = Math.sin(dir) * GU.push; p.kbz = Math.cos(dir) * GU.push
       if (p.stamina <= 0) {
@@ -185,8 +235,10 @@ export function CreateGame(scene, map = BALANCE.maps.arena, world) {
     p.model.play('stagger', 0.05) // corta a animação do golpe/rolamento que estava no meio
     p.model.hurt()
     events.emit('hurt', { p, dmg, by, strong })
+    // golpe forte (DESIGN 3.3): cai no chão, depois levanta invulnerável
+    if (strong && p.hp > 0) { p.down = true; p.downT = HU.down + HU.getUp; p.hurtT = 0; events.emit('knockdown', p) }
     if (p.hp <= 0) {
-      p.dead = true; p.deadT = 0; p.hurtT = 0; p.lock = null; p.queue = null; p.dashT = 0
+      p.dead = true; p.deadT = 0; p.hurtT = 0; p.lock = null; p.queue = null; p.dashT = 0; p.down = false; p.downT = 0
       p.model.die()
       events.emit('death', p)
       progress.died(p) // a cera vira vela no chão; salva
@@ -197,7 +249,7 @@ export function CreateGame(scene, map = BALANCE.maps.arena, world) {
   function respawn(p) {
     const s = progress.spawnPoint(p)
     Object.assign(p, { x: s.x, z: s.z, vx: 0, vz: 0, facing: s.facing, dead: false, deadT: 0,
-      atk: null, rollT: -1, queue: null, hurtT: 0, stunT: 0, parryT: -1, kbx: 0, kbz: 0, dashT: 0, safe: false, use: null, useT: -1 })
+      atk: null, rollT: -1, queue: null, hurtT: 0, stunT: 0, parryT: -1, kbx: 0, kbz: 0, dashT: 0, safe: false, use: null, useT: -1, down: false, downT: 0 })
     progress.refill(p)
     for (const e of enemies) e.reset()
     events.emit('respawn', p)
@@ -302,8 +354,14 @@ export function CreateGame(scene, map = BALANCE.maps.arena, world) {
     // aparando: a janela e depois o tempo aberto (errou); atordoado: só espera
     if (p.parryT >= 0 && (p.parryT += dt) >= PA.window + PA.miss) p.parryT = -1
     if (p.stunT > 0) p.stunT -= dt
-    // rolando, atacando, tropeçando ou atordoado, o corpo segue o roteiro (a "investida" do movimento copiado: dashT/dashA/dashV)
-    const roll = rolling(p), A = p.atk, hurt = p.hurtT > 0, stuck = p.stunT > 0 || p.parryT >= 0
+    // derrubado: caído (p.down), depois levantando invulnerável; só então volta a agir
+    if (p.downT > 0) {
+      p.downT -= dt
+      if (p.down && p.downT <= HU.getUp) p.down = false
+      p.safe = !p.down && p.downT > 0
+    }
+    // rolando, atacando, tropeçando, atordoado ou caído, o corpo segue o roteiro (a "investida" do movimento copiado: dashT/dashA/dashV)
+    const roll = rolling(p), A = p.atk, hurt = p.hurtT > 0, stuck = p.stunT > 0 || p.parryT >= 0 || p.downT > 0
     if (hurt) {
       // tropeço: empurrado para trás, perdendo força até parar
       const k = p.hurtT / HU.stagger
@@ -382,6 +440,7 @@ export function CreateGame(scene, map = BALANCE.maps.arena, world) {
     if (slowT > 0) { slowT -= dt; dt *= PA.slowScale } // aparo certo: tudo lento um instante
     for (const p of players.values()) updatePlayer(p, dt)
     for (const e of targets) e.update(dt)
+    updateStones(dt)
     separate()
     progress.update(dt)
   }

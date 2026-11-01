@@ -50,12 +50,12 @@ const WALLS = [
   [-4, 38, -4, 56, H], [40, 38, 40, 56, H], [6, 38, 33.2, 38, H], [38.8, 38, 40, 38, H],
   // carballeira (bloco de mata entre a vila e o corredor)
   [6, -4, 6, 38, H], [6, -4, 33.2, -4, H],
-  // quintais entre a rua de baixo e a de cima (só a ligação oeste passa)
-  [-42, 15, 6, 15, H],
+  // quintais entre a rua de baixo e a de cima (a ligação oeste passa; o portão do quintal do ferreiro (atalho 1) fica em x -25..-23)
+  [-42, 15, -25, 15, H], [-23, 15, 6, 15, H],
   // adro e cemitério (muro baixo): oeste, norte, leste (com a passagem para o mosteiro)
   [-2, -28, -2, -4, LOW], [-2, -28, 22, -28, LOW], [22, -28, 22, -22, LOW], [22, -16, 22, -4, LOW], [22, -16, 24, -16, LOW], [22, -22, 24, -22, LOW],
-  // souto ↔ rua de cima
-  [-50, -16, -2, -16, H],
+  // souto ↔ rua de cima (a escada do hórreo, atalho 3, fica em x -46..-42)
+  [-50, -16, -46, -16, H], [-42, -16, -2, -16, H],
   // mosteiro (portões: oeste aberto, sul fechado (atalho), norte aberto para a subida)
   [24, -34, 24, -22, MON], [24, -16, 24, -8, MON], [24, -8, 34, -8, MON], [38, -8, 48, -8, MON], [48, -34, 48, -8, MON],
   [24, -34, 34, -34, MON], [38, -34, 48, -34, MON],
@@ -68,11 +68,12 @@ const WALLS = [
 
 // casas do survivor: frente (+z) para a rua com ry = 0; ry = π vira para -z
 const HOUSES = [
-  { id: 'stone1', v: 0, x: -36, z: 20, ry: 0 }, { id: 'stone_s', v: 1, x: -22, z: 20, ry: 0 }, { id: 'house1', v: 0, x: -8, z: 20.5, ry: 0 },
+  { id: 'stone1', v: 0, x: -36, z: 20, ry: 0 }, { id: 'stone_s', v: 1, x: -18, z: 20, ry: 0 }, { id: 'house1', v: 0, x: -8, z: 20.5, ry: 0 },
   { id: 'house3', v: 1, x: -30, z: 40, ry: Math.PI }, { id: 'stone1', v: 2, x: -16, z: 40, ry: Math.PI },
-  { id: 'stone2', v: 1, x: -36, z: -10, ry: 0 }, // casa do ferreiro (2 andares; o atalho 1 chega no S10)
+  { id: 'house2', v: 1, x: -36, z: -10, ry: 0 },
   { id: 'stone1', v: 1, x: -22, z: -10, ry: 0 },
-  { id: 'house2', v: 2, x: -30, z: 9.5, ry: Math.PI }, { id: 'stone_s', v: 0, x: -14, z: 9.5, ry: Math.PI },
+  { id: 'stone2', v: 2, x: -30, z: 9.5, ry: Math.PI, ferreiro: true }, // casa do ferreiro: 2 andares; o anaco de cabaça fica em cima
+  { id: 'stone_s', v: 0, x: -14, z: 9.5, ry: Math.PI },
 ]
 
 // semente fixa por posição (o mesmo cenário sempre; não gasta o sorteio do replay)
@@ -134,7 +135,15 @@ export function BuildSantaBaia(scene, map) {
   }
 
   // ---- casas ----
-  for (const h of HOUSES) PlaceHouse(scene, h)
+  // anchors: pontos que o jogo usa (o anaco de cabaça num móvel do andar de cima da casa do ferreiro)
+  const anchors = {}
+  for (const h of HOUSES) {
+    const house = PlaceHouse(scene, h)
+    if (h.ferreiro) {
+      const spot = house.spots.filter((s) => s.lv === 1).sort((a, b) => a.id.localeCompare(b.id))[0]
+      if (spot) anchors.anaco = { x: spot.x, z: spot.z, y: spot.y, lv: 1 }
+    }
+  }
 
   // ---- cruceiros (o jogo acende as velinhas) ----
   for (const c of map.cruceiros) { put(CRUCEIRO, 'solid', c.x, c.z); cols.push({ x: c.x, z: c.z, hw: 0.9, hd: 0.9 }) }
@@ -221,7 +230,7 @@ export function BuildSantaBaia(scene, map) {
   // a chama da fogueira dos romeiros
   const fire = Fire(scene, -20, 30)
   return {
-    gates, levers, fogs,
+    gates, levers, fogs, anchors,
     update(dt) { for (const k in gates) gates[k].update(dt); for (const k in levers) levers[k].update(dt); for (const f of fogs) f.update(dt); fire.update(dt) },
   }
 }
