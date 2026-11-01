@@ -48,14 +48,16 @@ Para conferir se um arquivo continua igual: `git diff --no-index <survivor>/src/
 | Arquivo | O que é |
 |---|---|
 | `src/engine/world/ground.js` | Altura do chão e da água que o jogo informa (`SetGround`). Padrão: chão plano, sem água |
+| `src/engine/input/gamepad.js` (S1) | Controle de videogame: stick com zona morta, botões de segurar e de apertar, vibração. O survivor não tinha (lá o celular era o controle) |
 
 ## Trechos copiados
 | Arquivo novo | De onde | O que mudou |
 |---|---|---|
 | `src/game/world/place-house.js` | `src/shared/worldgen/generator.js` do survivor, trecho "casas" (malha + recortes + porta + colisores + registro) | Vira uma função para uma casa só. A altura vem de `GroundAt` (em vez de `Height` do terreno). Sem as sombras falsas do chunk |
 | `scripts/check.mjs` | `scripts/check.mjs` do survivor | Camadas `game → shared → engine` (em vez de `games/<jogo>`); sem a verificação do mundo infinito |
-| `scripts/sim.mjs` | `scripts/sim.mjs` do survivor | Mesmo mecanismo (sorteio e relógio fixos); roteiro deste jogo |
-| `scripts/smoke.mjs` | `scripts/smoke.mjs` do survivor | Sem relay, celular e menu; `SMOKE_CHROME` para usar um Chrome já instalado |
+| `scripts/sim.mjs` | `scripts/sim.mjs` do survivor | Mesmo mecanismo (sorteio e relógio fixos); roteiro deste jogo; a câmera entra no hash (S1). O teste "rodei direto?" usa `pathToFileURL` (S1): o do survivor só funcionava no Linux |
+| `scripts/smoke.mjs` | `scripts/smoke.mjs` do survivor | Sem relay, celular e menu; `SMOKE_CHROME` para usar um Chrome já instalado; controle de mentira (S1) |
+| `src/game/camera.js` (tremor, S1) | `src/engine/render/splitscreen.js` do survivor, trecho do tremor (`shake`) | Uma câmera só, sem raio de alcance (tela única); limite em `BALANCE.camera.shakeMax` |
 
 ## Ainda no survivor, para quando precisar
 Tela dividida (`engine/render/splitscreen.js`), menu de vagas (`engine/ui/lobby.js`), relay (`server/`), celular (`engine/input/phone.js`):

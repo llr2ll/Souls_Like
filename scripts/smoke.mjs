@@ -1,5 +1,6 @@
 // Teste de fumaça: compila o jogo, sobe a página numa porta própria (5199, não briga com o npm run dev),
-// abre num navegador sem tela, anda com o teclado (WASD, Shift), entra na casa e FALHA se aparecer erro no console.
+// abre num navegador sem tela, anda com o teclado (WASD, Shift), entra na casa, joga com um controle de mentira
+// (stick, segurar B, botões, desconectar) e FALHA se aparecer erro no console.
 // Capturas e log ficam em smoke/ (versionados: o PR mostra as capturas).
 // Sem placa de vídeo o jogo roda a poucos FPS: serve para pegar erro de carregar/iniciar/teclas, não bugs de longo prazo.
 // SMOKE_CHROME=/caminho/do/chrome usa um Chrome já instalado (quando o download do Playwright não é possível).
@@ -81,10 +82,30 @@ async function play(page) {
   await hold(['w', 'a'], 2500)
   await hold(['w'], 2500)
   await shot('03-casa.jpg')
+  // controle: conecta (aviso no alto da tela), anda com o stick, corre segurando B, aperta os botões e desconecta
+  const pad = (fn) => page.evaluate(fn)
+  await pad(() => { window.__pad.on = true; window.__pad.pad.axes[0] = 1 })
+  await wait(2000)
+  await shot('04-controle.jpg')
+  await pad(() => { const p = window.__pad.pad; p.axes[0] = 0; p.axes[1] = 1; p.buttons[1].value = 1 })
+  await wait(2000)
+  await pad(() => { const p = window.__pad.pad; p.axes[1] = 0; p.buttons[1].value = 0; for (const b of p.buttons) b.value = 1 })
+  await wait(600)
+  await pad(() => { for (const b of window.__pad.pad.buttons) b.value = 0 })
+  await wait(600)
+  await pad(() => { window.__pad.on = false })
   // resto do tempo: anda em volta (bate no muro e nas peças)
   const keys = ['s', 'd', 'w', 'a']
   for (let i = 0; Date.now() - t0 < PLAY_SECONDS * 1000; i++) await hold([keys[i % 4]], 900)
-  await shot('04-fim.jpg')
+  await shot('05-fim.jpg')
+}
+
+// controle de mentira: o navegador sem tela não tem controle, e o jogo só lê navigator.getGamepads() a cada quadro
+function FakeGamepad() {
+  const pad = { id: 'Controle de teste (STANDARD GAMEPAD)', index: 0, connected: true, mapping: 'standard', timestamp: 0,
+    axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 })) }
+  window.__pad = { on: false, pad }
+  Object.defineProperty(navigator, 'getGamepads', { configurable: true, value: () => [window.__pad.on ? pad : null] })
 }
 
 let browser
@@ -105,6 +126,7 @@ try {
   let frames = 0
   await page.exposeFunction('__smokeFps', () => frames++)
   await page.addInitScript(() => addEventListener('fps', () => window.__smokeFps()))
+  await page.addInitScript(FakeGamepad)
   await page.goto(WEB)
   await page.waitForFunction(() => /FPS/.test(document.querySelector('#fps-element')?.textContent || ''), null, { timeout: 60000 })
   note(`   jogo desenhando (${await page.textContent('#fps-element')})`)
