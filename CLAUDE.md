@@ -32,7 +32,8 @@ npm run build    # gera dist/ (para hospedar)
 - `npm run check` — poucos segundos, sem navegador. Rodar SEMPRE antes de abrir PR. Duas verificações:
   1. **Camadas:** imports só descem (`src/game` → `src/shared` → `src/engine`); import para arquivo ou pacote inexistente falha;
      a página tem de apontar para scripts que existem.
-  2. **Jogo (replay):** `scripts/sim.mjs` joga 70 s com sorteio e relógio fixos e compara o hash (jogador + câmera) com `scripts/sim-fingerprint.txt`.
+  2. **Jogo (replay):** `scripts/sim.mjs` joga 3 minutos com sorteio e relógio fixos e compara o hash (jogador, câmera, alvos, inimigos,
+     contadores de cada cena) com `scripts/sim-fingerprint.txt`.
      Roteiro: S0 (0–60 s) anda em 8 direções (bate no muro, no cruceiro, nas pedras), corre às vezes, vai até a porta da casa, entra e sai.
      S1 (60–70 s) controle de mentira: stick pela metade (anda devagar), diagonal segurando B (corre), stick quase solto (parado).
      S2 (70–82 s) toques no botão de rolar (rola), 2º toque guardado, rolar até zerar o fôlego, segurar (corre), `act('roll')`.
@@ -45,6 +46,8 @@ npm run build    # gera dist/ (para hospedar)
      (sem levar golpe: prova que rolar sempre funciona). Depois outro Romeiro, o robô parado com pouca vida morre e volta ao começo.
      S6 (140–167 s) escudo segura golpes; aparo no fim do aviso → joelhos → crítico (só um por joelho); combo quebra a postura →
      crítico; fôlego baixo segurando → guarda quebrada. O hash conta bloqueios, aparos, guardas quebradas, joelhos e críticos.
+     S7 (167–180 s) longe dos inimigos: bebe com pouca vida, bebe de vida cheia, come pão, leva golpe no meio do gole (`game.hurt`),
+     esvazia a cabaça e tenta de novo. O hash conta curas, perdas, vazios, vida, goles e pães.
      **PR de organização tem de dar igual.** PR que muda a jogabilidade de propósito: `npm run check -- --update-sim` e dizer isso na descrição.
      Cada PR de jogabilidade acrescenta a sua cena ao roteiro. `SIM_TRACE=arquivo node scripts/sim.mjs` grava o rastro quadro a quadro.
 - `npm run smoke` — teste automático (~1 min). Compila, sobe a página na porta **5199**, abre no Chromium sem tela, anda com o teclado,
@@ -81,7 +84,7 @@ src/game/                 este jogo
   main.js                 liga tudo: renderer, luz, arena, câmera, teclado, controle, laço; Wire() conecta motor ↔ peças ↔ sons;
                           Impact() = tremor + vibração; Note() = aviso curto no alto da tela
   game.js                 estado e regras (sem desenhar: o replay roda isto sem navegador): botão de rolar/correr, rolamento
-  hud.js                  barras na tela (página, não 3D): vida, fôlego, vida do alvo travado
+  hud.js                  página, não 3D: vida, fôlego, vida e postura do alvo travado, placar (cabaça, pão), borda vermelha
   enemies/enemy.js        inimigo genérico: vê, geme, aproxima, avisa, golpeia, recua, espera, tropeça, morre, volta para casa
   enemies/romeiro.js      Romeiro perdido: humanoide do survivor + bordão e foice, poses da pancada e dos dois cortes
   fx/trail.js             rastro da lâmina (só no instante de dano)
@@ -104,6 +107,8 @@ src/game/                 este jogo
   `block`, `guard-break`, `parry-try`, `parry` → sons, faíscas (`shared/fx/effects.js`), vibração. `enemy-broken` → clarão.
   Golpe `critical` → aproximação de 5% da câmera (`camera.punch`). Aparo certo deixa o jogo lento por 0,12 s (`slowT` no `game.js`).
   Inimigos: `enemy-alert` (gemido), `enemy-warn` ({ e, name }: som próprio de cada golpe), `enemy-swing`, `enemy-stagger`, `enemy-death`.
+  `use` ({ p, what: 'drink' | 'eat' }) → gole/mastigar; `healed` → sininhos + anel dourado; `use-lost` e `use-empty` → som seco
+  (vazio também avisa "A cabaça está vazia").
   `roll` e `roll-land` (o jogo avisa; `main.js` toca o impulso e o baque). Passos e respiração ofegante: `BodySounds()` em `main.js`.
 - Peças de `shared` recebem os números como parâmetro: `UpdatePlayerMovement(p, dt, colliders, BALANCE.move)`.
 
@@ -111,9 +116,8 @@ src/game/                 este jogo
 Copiado do survivor. **Só ganha coisas, nunca muda** (para o co-op pelo celular funcionar depois).
 - `game.setInput(id, { mx, mz, ax, az, run, fire, guard })` — mover (-1..1), mirar (-1..1), correr 0/1, `fire` só no mouse,
   `guard` 0/1 = escudo erguido (acrescentado no S6, em `engine/input/contract.js`).
-- `game.act(id, ação)` — fazem efeito: `roll` (S2), `light`, `heavy` (S3), `lock`, `lock-next`, `lock-prev` (S4), `parry` (S6).
-  Planejada (DESIGN 3.7): `heal`
-  (`use` e `swap` já existem). Bloquear (`guard`) é de segurar: entra como campo novo no `setInput`.
+- `game.act(id, ação)` — fazem efeito: `roll` (S2), `light`, `heavy` (S3), `lock`, `lock-next`, `lock-prev` (S4), `parry` (S6),
+  `heal` (cabaça) e `eat` (pão de milho; ação nova, S7). `use` e `swap` já existiam no contrato e ganham efeito depois.
 - `run` = **botão de rolar/correr segurado**. O jogo decide (`game.js`): soltar antes de `BALANCE.roll.tap` (0,25 s) rola; segurar mais corre.
   O jogo guarda o que chegou em `p.raw` e monta `p.input` (o que o movimento copiado recebe).
 - Teclado e controle mexem o mesmo jogador, id `'local'`, e mandam o mesmo contrato (`engine/input/keyboard.js` e `gamepad.js`).
@@ -190,6 +194,11 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
   (de joelhos = estado `feed` do zumbi + pose de braços caídos; arma brilha via `spec.glow`) por `tune.broken` s.
 - Crítico: golpe leve com um inimigo `broken` a até 2 m e na frente vira `critical` (3× o leve, só nele, invulnerável a animação toda,
   `riposte` no kit). Um crítico por joelho (`e.riposting`): depois dele o inimigo levanta.
+- Cabaça (R/X) e pão (F/Y; o DESIGN 3.7 não tinha botão para o pão: escolhi Y, que estava livre). Passam pela fila de ações; não
+  precisam de fôlego. O gole/pão é gasto no começo (`p.gourd`, `p.bread`); a cura entra em `gourd.healAt` (pão: no fim). Levou golpe
+  antes: perdeu (`use-lost`). Bebendo anda a 1,8 m/s e não rola, golpeia nem ergue o escudo. A mão esquerda leva a cabaça à boca com o
+  cotovelo à frente (assim a rodela do antebraço fica de quina). Provisório: começa com 3 pães, e voltar ao começo enche a cabaça.
+- `game.hurt(p, dmg, dir)` = dano de fora dos golpes corpo a corpo (pedra de funda no S10; o replay usa).
 - O 3º leve é uma estocada nova no kit do Samurai (`thrust`); o pesado também é novo (`heavy`). O rastro (`fx/trail.js`) usa a ponta
   da espada (`model.muzzle`) e o meio do caminho até o peito.
 - `npm run check` roda no Windows também (o `sim.mjs` usa `pathToFileURL`).
@@ -223,3 +232,6 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
 - **s6-bloquear-aparar (S6)** — escudo (clique direito/LB: segura de frente, gasta fôlego, guarda quebrada), aparo (Shift+direito/LT:
   janela 0,18 s, faísca, "tlin", câmera lenta), postura (barra dourada sob a vida do alvo), de joelhos com a arma brilhando, golpe
   crítico (36, invulnerável, aproximação da câmera). Contrato ganhou `guard`. Rodela no braço esquerdo (`player.js`), `riposte` no kit.
+- **s7-cabaca (S7)** — cabaça (4 goles, 1,1 s, cura 40 aos 0,7 s; golpe antes = gole perdido), pão de milho (cura 15 em 0,5 s),
+  placar no canto de baixo (cabaça e pão, piscam ao usar), borda vermelha com vida abaixo de 25%. Animação de beber/comer no
+  `player.js` (cabaça e pão aparecem na mão esquerda). `game.hurt` exposto.

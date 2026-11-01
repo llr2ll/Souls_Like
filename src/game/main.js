@@ -48,6 +48,13 @@ function Wire(camera) {
   events.on('parry-try', (p) => sfx('throw', { x: p.x, z: p.z }))
   events.on('parry', ({ p }) => { sfx('ricochet', { x: p.x, z: p.z }); sfx('pin', { x: p.x, z: p.z }) })
   events.on('enemy-broken', (e) => sfx('zstagger', { x: e.x, z: e.z }))
+  // cabaça e pão: gole (borbulha) ou mastigar; a cura soa como sininhos; golpe no meio = som seco
+  events.on('use', ({ p, what }) => what === 'drink'
+    ? sfx('gurgle', { x: p.x, z: p.z, delay: 0.3 })
+    : [0.1, 0.28].forEach((d) => sfx('chew', { x: p.x, z: p.z, delay: d })))
+  events.on('healed', ({ p }) => sfx('heal', { x: p.x, z: p.z }))
+  events.on('use-lost', ({ p }) => sfx('dryfire', { x: p.x, z: p.z }))
+  events.on('use-empty', ({ p, what }) => { sfx('dryfire', { x: p.x, z: p.z }); Note(what === 'drink' ? 'A cabaça está vazia' : 'Sem pão de milho') })
 }
 
 // faíscas: na frente do escudo (bloqueio e aparo) e clarão na arma de quem ajoelhou
@@ -57,6 +64,7 @@ function WireFX(fx) {
   events.on('guard-break', ({ p }) => fx.burst(...shield(p, 1), 0xc8a070, 10, 3, 0.5, 0.9))
   events.on('parry', ({ p }) => { fx.burst(...shield(p, 1), 0xfff2c0, 14, 5, 0.45, 1); fx.flash(...shield(p, 1), 0.5, 0xfff2c0, 0.18) })
   events.on('enemy-broken', (e) => fx.flash(e.x, 1.0, e.z, 0.7, 0xffe9a8, 0.35))
+  events.on('healed', ({ p }) => fx.ring(p.x, p.gy || 0, p.z, 0xffd98a, 0.3, 1.3, 0.6)) // cura: anel dourado no chão
 }
 
 // rastro da lâmina: uma amostra por quadro enquanto ela machuca (ponta da espada e o meio do caminho até o peito)
@@ -121,9 +129,12 @@ export async function LoadGame() {
   const input = { players: game.players, setInput: game.setInput, act: game.act }
   BindKeyboard(input, BALANCE.keys)
   const help = document.getElementById('help')
-  const HELP = { keys: help.textContent, pad: 'Controle: stick anda · B: tocar rola, segurar corre · RB leve · RT pesado · LB escudo · LT apara · R3 trava' }
+  const HELP = { keys: help.textContent, pad: 'Controle: stick anda · B: tocar rola, segurar corre · RB leve · RT pesado · LB escudo · LT apara · R3 trava · X cabaça · Y pão' }
+  for (const [sel, key] of [['.gourd small', 'X'], ['.bread small', 'Y']]) document.querySelector(`#items ${sel}`).dataset.pad = key
   const pad = BindGamepad(input, BALANCE.pad, (name) => {
     help.textContent = name ? HELP.pad : HELP.keys
+    // a letra no canto de cada item mostra o botão do aparelho em uso
+    for (const el of document.querySelectorAll('#items small')) { el.dataset.key ||= el.textContent; el.textContent = name ? el.dataset.pad : el.dataset.key }
     Note(name ? `Controle conectado: ${name}` : 'Controle desconectado')
   })
   events.on('hit', (d) => Impact(d.kind, camera, pad)) // golpe acertou: tremor (só o pesado) e vibração

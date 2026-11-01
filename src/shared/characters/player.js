@@ -61,6 +61,15 @@ const shieldGeo = () => (SHIELD ||= merge([
   P(sph(0.07, 8, 5), 0x8a8f99, { p: [0, -0.02, 0], s: [1, 0.55, 1], lit: 0.35 }),
 ]).rotateX(Math.PI / 2))
 
+// cabaça (frasco de cura) e pão de milho: aparecem na mão esquerda só ao beber/comer
+let GOURD = null, BREAD = null
+const gourdGeo = () => (GOURD ||= merge([
+  P(sph(0.065, 9, 7), 0xc9a14a, { p: [0, -0.07, 0.03], lit: 0.15 }),
+  P(sph(0.045, 8, 6), 0xd4ad55, { p: [0, 0.01, 0.03], lit: 0.15 }),
+  box(0.03, 0.04, 0.03, 0x6b4a2b, [0, 0.06, 0.03]), // rolha
+]))
+const breadGeo = () => (BREAD ||= merge([P(sph(0.075, 9, 6), 0xd9b25a, { p: [0, -0.05, 0.04], s: [1, 0.55, 1], lit: 0.12 })]))
+
 // opts.shield: escudo no braço esquerdo; a espada fica de uma mão (a mão esquerda não vai mais no cabo)
 export function CreatePlayerModel(cls = 'gunner', opts = {}) {
   const look = LOOK(cls)
@@ -98,6 +107,9 @@ export function CreatePlayerModel(cls = 'gunner', opts = {}) {
   const shield = opts.shield ? mesh(shieldGeo()) : null
   // no antebraço esquerdo, pelo lado de fora: a face fica perpendicular ao eixo do cotovelo (guarda: de frente; braço caído: de lado)
   if (shield) { shield.position.set(0.07, -0.15, 0); shield.rotation.y = -Math.PI / 2; arms[0].el.add(shield) }
+  const gourd = mesh(gourdGeo()), bread = mesh(breadGeo())
+  gourd.visible = bread.visible = false
+  arms[0].hand.add(gourd, bread)
   const holder = grp(tilt)
   const kit = KITS[cls](holder, { handR: arms[1].hand, handL: arms[0].hand, spine })
 
@@ -121,7 +133,8 @@ export function CreatePlayerModel(cls = 'gunner', opts = {}) {
     const sp = seat ? 0 : p.speed
     const moving = sp > 0.3
     // pesos suavizados: transições sem "estalo" entre andar/correr/mirar/pular/nadar/sentar
-    aimW = damp(aimW, p.aiming || (act && act !== 'swap' && act !== 'roll' && act !== 'parry' && act !== 'stagger') ? 1 : 0, 11, dt)
+    const eating = act === 'drink' || act === 'eat'
+    aimW = damp(aimW, p.aiming || (act && act !== 'swap' && act !== 'roll' && act !== 'parry' && act !== 'stagger' && !eating) ? 1 : 0, 11, dt)
     runW = damp(runW, p.running && moving ? 1 : 0, 6, dt)
     moveW = damp(moveW, clamp(sp / 1.6, 0, 1), 9, dt)
     const air = !seat && !p.swim && p.jy > 0.06
@@ -148,6 +161,10 @@ export function CreatePlayerModel(cls = 'gunner', opts = {}) {
     // escudo: erguido (p.guard) ou aparando (ação 'parry': empurra o escudo para fora no começo e volta)
     guardW = damp(guardW, (p.guard || act === 'parry') && opts.shield ? 1 : 0, 18, dt)
     const parryPush = act === 'parry' ? pulse(clamp(ak / 0.45, 0, 1), 0.35) : 0
+    // beber/comer: leva a mão esquerda à boca (sobe até 25%, fica, desce depois de 75%)
+    const lift = eating ? clamp(Math.min(ak / 0.25, (1 - ak) / 0.25), 0, 1) : 0
+    const lk = lift * lift * (3 - 2 * lift)
+    gourd.visible = act === 'drink'; bread.visible = act === 'eat'
     heldW = damp(heldW, p.held ? 1 : 0, 8, dt) // agarrado: se debatendo
     if (p.dead) fall = Math.min(1, fall + dt * (0.6 + fall * 4)) // cai acelerando
     else fall = damp(fall, 0, 5, dt)
@@ -237,6 +254,7 @@ export function CreatePlayerModel(cls = 'gunner', opts = {}) {
     if ((lookT -= dt) <= 0) { lookT = 2 + Math.random() * 3.5; look2 = idle > 0.5 && aimW < 0.2 ? (Math.random() - 0.5) * 1.3 : 0 }
     neck.rotation.y = damp(neck.rotation.y, -spine.rotation.y * 0.55 + look2 * idle * (1 - aimW) + pose.neckY, 5, dt)
     neck.rotation.x = -spine.rotation.x * 0.6 + 0.04 * A * Math.cos(phase * 2) + pose.neckX - hurtT * 0.5 - swimW * 0.9 + fall * 0.3 + tk * 1.1
+      - (act === 'drink' ? lk * 0.55 : 0) // gole: cabeça para trás
 
     tilt.rotation.y = pose.yaw
     tilt.rotation.z = lean * (1 - seatW)
@@ -292,11 +310,15 @@ export function CreatePlayerModel(cls = 'gunner', opts = {}) {
       if (fall > 0) { w.set(s * 0.55, -0.15, -0.05).add(a.S); a.T.lerp(w, fall) }
       if (tk > 0) { w.set(s * 0.16, -0.32, 0.3).add(a.S); a.T.lerp(w, tk * (1 - gw * 0.6)) } // rolando: braços abraçando os joelhos
       // escudo à frente do peito; aparando, vai para fora e para a frente num tranco
-      const gW = !right ? guardW * (1 - tk) * free : 0
+      const gW = !right ? guardW * (1 - tk) * (1 - lk) * free : 0
       if (gW > 0) { w.set(-0.2 + parryPush * 0.22, -0.12 + parryPush * 0.08, 0.36 + parryPush * 0.14).add(a.S); a.T.lerp(w, gW) }
+      if (!right && lk > 0) { w.set(0.04, 0.6, 0.2); a.T.lerp(w, lk * free) } // mão na boca
       // cotovelo: para trás quando o braço está solto, para fora/baixo quando segura algo à frente
-      const hold = Math.max(gw, tw, gW, driving ? 1 : 0)
-      a.pole.set(s * lerp(0.25, 0.7, hold), lerp(-0.15, -1, hold), lerp(-1, -0.25, hold)).normalize()
+      const hold = Math.max(gw, tw, gW, !right ? lk : 0, driving ? 1 : 0)
+      a.pole.set(s * lerp(0.25, 0.7, hold), lerp(-0.15, -1, hold), lerp(-1, -0.25, hold))
+      // bebendo/comendo: cotovelo à frente e para baixo (o escudo do antebraço fica de quina e não tapa o rosto)
+      if (!right && lk > 0) a.pole.lerp(w.set(s * 0.05, -0.5, 1), lk)
+      a.pole.normalize()
       solveArm(a.sh, a.el, a.S, a.T, a.pole, B.upper, B.fore)
     }
     // objeto "na mão": depois do IK, segue a mão direita

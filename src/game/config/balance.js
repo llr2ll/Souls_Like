@@ -46,6 +46,20 @@ export const BALANCE = {
     buffer: 0.25, // apertou até tanto tempo (s) antes do fim do golpe: fica guardado e sai na hora certa
   },
 
+  // Cura (DESIGN 6). Cabaça: R ou X. Pão de milho: F ou Y. Bebendo/comendo anda devagar e não ataca nem rola
+  gourd: {
+    sips: 4, // goles na cabaça (o anaco de cabaça dá +1). Enche ao descansar no cruceiro (S8; por enquanto, ao voltar ao começo)
+    time: 1.1, // duração do gole (s)
+    healAt: 0.7, // a cura entra neste instante (s). Levou golpe antes: o gole se perde
+    heal: 40, // vida que o gole cura
+  },
+  bread: {
+    start: 3, // pães com que você começa (provisório: na área da demo eles ficam pelo caminho)
+    time: 0.5, // duração (s); a cura entra no fim
+    heal: 15,
+  },
+  usingSpeed: 1.8, // velocidade andando enquanto bebe ou come (m/s)
+
   // Escudo (DESIGN 3.3): segurar clique direito ou LB. Rodela de madeira, desde o começo
   guard: {
     speed: 2.4, // andando com o escudo erguido (m/s)
@@ -110,6 +124,7 @@ export const BALANCE = {
   hud: {
     px: 2, // pixels por ponto de fôlego (fôlego maior = barra mais comprida, como nos souls)
     pant: 25, // fôlego abaixo disso: respiração ofegante (DESIGN 8, item 9)
+    danger: 0.25, // vida abaixo disso (fração): borda vermelha na tela (DESIGN 8, item 10)
   },
 
   // Câmera de cima em 3/4, fixa (não gira). DESIGN 3.6
@@ -151,14 +166,14 @@ export const BALANCE = {
     hold: { B: 'run', LB: 'guard' }, // B: tocar rola, segurar corre · LB: segurar ergue o escudo
     // apertar: cada ação só faz efeito quando o PR dela chegar (bater S3, travar S4, aparar S6, cabaça S7)
     // R-left / R-right = puxar o stick direito para o lado (troca de alvo)
-    press: { A: 'use', X: 'heal', RB: 'light', RT: 'heavy', LT: 'parry', R3: 'lock', 'R-left': 'lock-prev', 'R-right': 'lock-next', RIGHT: 'swap' },
+    press: { A: 'use', X: 'heal', Y: 'eat', RB: 'light', RT: 'heavy', LT: 'parry', R3: 'lock', 'R-left': 'lock-prev', 'R-right': 'lock-next', RIGHT: 'swap' },
   },
 
   // Teclado e mouse (DESIGN 3.7). WASD anda. Nomes: letras, 'space', 'mouse-left', 'mouse-right', 'mouse-middle', 'wheel-up', 'wheel-down'
   keys: {
     hold: { space: 'run', 'mouse-right': 'guard' }, // Espaço: tocar rola, segurar corre · clique direito: escudo
     // apertar ('shift+…' = com Shift segurado). Cada ação só faz efeito quando o PR dela chegar
-    press: { e: 'use', r: 'heal', q: 'lock', 'mouse-middle': 'lock', 'wheel-up': 'lock-prev', 'wheel-down': 'lock-next',
+    press: { e: 'use', r: 'heal', f: 'eat', q: 'lock', 'mouse-middle': 'lock', 'wheel-up': 'lock-prev', 'wheel-down': 'lock-next',
       'mouse-left': 'light', 'shift+mouse-left': 'heavy', 'shift+mouse-right': 'parry' },
   },
 

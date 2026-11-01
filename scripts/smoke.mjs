@@ -133,10 +133,14 @@ async function play(page) {
   await k.down('Shift'); await page.mouse.down({ button: 'right' }); await page.mouse.up({ button: 'right' }); await k.up('Shift')
   await wait(600)
   await k.press('Space'); await wait(1200)
+  // cabaça (R) e pão (F): o placar no canto de baixo desce
+  await k.press('r'); await wait(1300)
+  await k.press('f'); await wait(800)
+  await shot('10-cabaca.jpg')
   // resto do tempo: anda em volta (bate no muro e nas peças)
   const keys = ['s', 'd', 'w', 'a']
   for (let i = 0; Date.now() - t0 < PLAY_SECONDS * 1000; i++) await hold([keys[i % 4]], 900)
-  await shot('10-fim.jpg')
+  await shot('11-fim.jpg')
 }
 
 // controle de mentira: o navegador sem tela não tem controle, e o jogo só lê navigator.getGamepads() a cada quadro

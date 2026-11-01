@@ -14,6 +14,7 @@ import { BALANCE } from './config/balance'
 // 'hit' (golpe acertou: { by, target, kind }), 'lock' (travou, trocou ou soltou: { p, target }),
 // 'hurt' (jogador levou golpe: { p, dmg, strong }), 'death' (jogador morreu), 'respawn'. Os inimigos avisam 'enemy-*' (enemies/enemy.js).
 // S6: 'block' (o escudo segurou), 'guard-break' (fôlego zerou segurando), 'parry-try' (começou a aparar), 'parry' (aparou).
+// S7: 'use' (começou a beber/comer: { p, what }), 'healed' (a cura entrou), 'use-lost' (levou golpe antes), 'use-empty' (acabou).
 const DEG = Math.PI / 180
 const wrap = (a) => { a = (a + Math.PI) % (Math.PI * 2); if (a < 0) a += Math.PI * 2; return a - Math.PI }
 const KINDS = { romeiro: CreateRomeiro }
@@ -48,6 +49,8 @@ export function CreateGame(scene) {
       lock: null, lockLost: 0, // alvo travado; há quanto tempo não o vê
       hurtT: 0, kbx: 0, kbz: 0, deadT: 0, // tropeço (tempo e empurrão); morto há quanto tempo
       guard: false, parryT: -1, stunT: 0, // escudo erguido agora; aparando há quanto tempo; aberto (guarda quebrada, aparo errado)
+      gourd: BALANCE.gourd.sips, gourdMax: BALANCE.gourd.sips, bread: BALANCE.bread.start, // goles e pães
+      use: null, useT: -1, healed: false, // bebendo ('drink') ou comendo ('eat'); há quanto tempo; a cura já entrou?
     })
   }
   // inimigos: o jogo (main.js) põe os da arena; o replay põe na hora da cena dele
@@ -81,7 +84,8 @@ export function CreateGame(scene) {
   function act(id, a) {
     const p = players.get(id)
     if (!p) return
-    if (a === 'roll' || a === 'light' || a === 'heavy' || a === 'parry') queue(p, a)
+    if (a === 'roll' || a === 'light' || a === 'heavy' || a === 'parry' || a === 'eat') queue(p, a)
+    else if (a === 'heal') queue(p, 'drink')
     else if (a === 'lock') p.lock ? setLock(p, null) : setLock(p, pickLock(p))
     else if ((a === 'lock-next' || a === 'lock-prev') && p.lock) setLock(p, nextLock(p, a === 'lock-next' ? 1 : -1) || p.lock)
   }
@@ -134,8 +138,8 @@ export function CreateGame(scene) {
   const rolling = (p) => p.rollT >= 0
   const spend = (p, n) => { p.stamina = Math.max(0, p.stamina - n); p.restT = 0 } // qualquer fôlego acima de 0 basta; ele zera
   // rolar: não rolando e, se atacando, só depois do impacto (o rolamento é o único que cancela um golpe)
-  // tropeçando, atordoado, aparando ou morto não age
-  const free = (p) => !p.dead && p.hurtT <= 0 && p.stunT <= 0 && p.parryT < 0
+  // tropeçando, atordoado, aparando, bebendo/comendo ou morto não age
+  const free = (p) => !p.dead && p.hurtT <= 0 && p.stunT <= 0 && p.parryT < 0 && !p.use
   const canRoll = (p) => free(p) && !rolling(p) && p.stamina > 0 && (!p.atk || p.atk.t >= p.atk.def.hit[1])
   const canAttack = (p) => free(p) && !rolling(p) && !p.atk && p.stamina > 0
 
@@ -163,6 +167,8 @@ export function CreateGame(scene) {
       return 'block'
     }
     p.parryT = -1; p.stunT = 0
+    // bebendo/comendo antes de a cura entrar: perdeu o gole/o pão
+    if (p.use) { if (!p.healed) events.emit('use-lost', { p, what: p.use }); p.use = null; p.useT = -1 }
     p.hp = Math.max(0, p.hp - dmg)
     // tropeço: perde o golpe/rolamento em andamento e é empurrado para trás
     p.atk = null; p.rollT = -1; p.safe = false; p.comboN = 0
@@ -180,7 +186,8 @@ export function CreateGame(scene) {
   // voltar ao começo (o cruceiro chega no S8): vida e fôlego cheios, inimigos de volta ao lugar
   function respawn(p) {
     Object.assign(p, { x: PL.start.x, z: PL.start.z, vx: 0, vz: 0, facing: Math.PI, hp: p.max, stamina: p.staminaMax, dead: false, deadT: 0, tired: false,
-      atk: null, rollT: -1, queue: null, hurtT: 0, stunT: 0, parryT: -1, kbx: 0, kbz: 0, dashT: 0, safe: false })
+      atk: null, rollT: -1, queue: null, hurtT: 0, stunT: 0, parryT: -1, kbx: 0, kbz: 0, dashT: 0, safe: false, use: null, useT: -1,
+      gourd: p.gourdMax }) // a cabaça enche (provisório: no S8 só o cruceiro enche)
     for (const e of enemies) e.reset()
     events.emit('respawn', p)
   }
@@ -218,6 +225,22 @@ export function CreateGame(scene) {
     spend(p, def.stamina)
     p.model.play(def.anim, def.time)
   }
+  // beber (cabaça) ou comer (pão): o gole/pão é gasto no começo; a cura entra no instante certo
+  function startUse(p, what) {
+    const have = what === 'drink' ? p.gourd : p.bread
+    if (have <= 0) { events.emit('use-empty', { p, what }); return }
+    if (what === 'drink') p.gourd--; else p.bread--
+    p.use = what; p.useT = 0; p.healed = false
+    p.model.play(what, what === 'drink' ? BALANCE.gourd.time : BALANCE.bread.time)
+    events.emit('use', { p, what })
+  }
+  function updateUse(p, dt) {
+    if (!p.use) return
+    const G = p.use === 'drink' ? BALANCE.gourd : BALANCE.bread, at = G.healAt ?? G.time
+    p.useT += dt
+    if (!p.healed && p.useT >= at) { p.healed = true; p.hp = Math.min(p.max, p.hp + G.heal); events.emit('healed', { p, what: p.use }) }
+    if (p.useT >= G.time) { p.use = null; p.useT = -1 }
+  }
   function startParry(p) {
     spend(p, PA.stamina)
     p.parryT = 0
@@ -253,10 +276,12 @@ export function CreateGame(scene) {
     // ação guardada: sai assim que der; senão perde a validade
     const q = p.queue
     if (q) {
-      if (q.what === 'roll' ? canRoll(p) : canAttack(p)) {
+      const using = q.what === 'drink' || q.what === 'eat'
+      if (q.what === 'roll' ? canRoll(p) : using ? free(p) && !rolling(p) && !p.atk : canAttack(p)) {
         p.queue = null
         if (q.what === 'roll') startRoll(p, q.a)
         else if (q.what === 'parry') startParry(p)
+        else if (q.what === 'drink' || q.what === 'eat') startUse(p, q.what)
         else startAttack(p, q.what, q.a)
       } else if ((q.t -= dt) <= 0) p.queue = null
     }
@@ -295,8 +320,11 @@ export function CreateGame(scene) {
     // travado e sem correr: anda de frente para o alvo (de lado, de costas). O movimento copiado chama isso de "mirar"
     // (rolando, atacando ou tropeçando, o corpo segue a ação)
     if (p.lock && !p.input.run && !roll && !A && !hurt) { const a = toward(p, p.lock); p.input.ax = Math.sin(a); p.input.az = Math.cos(a) }
-    // de escudo erguido anda mais devagar (o movimento copiado multiplica a velocidade por slowAct)
-    p.slowAct = p.guard ? GU.speed / (p.input.ax || p.input.az ? BALANCE.move.aim : BALANCE.move.walk) : 1
+    // de escudo erguido ou bebendo anda mais devagar (o movimento copiado multiplica a velocidade por slowAct)
+    const slow = p.use ? BALANCE.usingSpeed : p.guard ? GU.speed : 0
+    p.slowAct = slow ? slow / (p.input.ax || p.input.az ? BALANCE.move.aim : BALANCE.move.walk) : 1
+    if (p.use) p.input.run = 0
+    updateUse(p, dt)
     const before = p.stamina
     UpdatePlayerMovement(p, dt, null, BALANCE.move)
     if (p.guard && p.stamina > before) p.stamina = before + (p.stamina - before) * GU.regen // escudo erguido: fôlego volta mais devagar
@@ -342,5 +370,6 @@ export function CreateGame(scene) {
   }
   function clear() { for (const id of [...players.keys()]) removePlayer(id) }
 
-  return { players, targets, enemies, addPlayer, removePlayer, spawn, setInput, act, update, clear }
+  // hurt: dano de fora dos golpes corpo a corpo (pedra de funda, armadilha; o replay também usa)
+  return { players, targets, enemies, addPlayer, removePlayer, spawn, setInput, act, update, clear, hurt: hurtPlayer }
 }

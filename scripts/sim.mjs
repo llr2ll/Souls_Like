@@ -17,13 +17,15 @@
 // S6 (140–167 s): outro Romeiro perto do começo. O robô segura golpes no escudo; apara no fim do aviso (ele ajoelha) e dá o
 // crítico; pune com o combo de 3 até a postura quebrar e dá outro crítico; com pouco fôlego segura uma pancada (guarda quebrada).
 // O hash conta bloqueios, aparos, guardas quebradas, joelhos e críticos.
+// S7 (167–180 s): longe dos inimigos, com pouca vida: bebe (cura), bebe de vida cheia (gasta mesmo assim), come pão,
+// leva golpe no meio de um gole (perde), esvazia a cabaça e tenta beber vazia. O hash conta curas, perdas e vazios.
 // Cada PR que cria jogabilidade acrescenta a sua cena ao roteiro.
 // Rode sempre em processo novo (node scripts/sim.mjs): o Three.js e o Vite guardam estado entre rodadas.
 // SIM_TRACE=arquivo grava um rastro quadro a quadro (para achar onde dois replays se separam).
 // (Mecanismo copiado do survivor e4314ee; o roteiro é deste jogo.)
 import { createHash } from 'node:crypto'
 
-export async function SimFingerprint(vite, frames = 5020) {
+export async function SimFingerprint(vite, frames = 5400) {
   // o motor de áudio registra teclas ao carregar; fora do navegador isso não existe
   globalThis.addEventListener ??= () => {}
   // sorteio e relógio fixos
@@ -66,6 +68,10 @@ export async function SimFingerprint(vite, frames = 5020) {
     events.on('guard-break', () => s6.guardBreak++)
     events.on('enemy-broken', () => s6.broken++)
     events.on('hit', ({ kind }) => { if (kind === 'critical') s6.critical++ })
+    const s7 = { healed: 0, lost: 0, empty: 0 }
+    events.on('healed', () => s7.healed++)
+    events.on('use-lost', () => s7.lost++)
+    events.on('use-empty', () => s7.empty++)
     // robô do S5: estado da luta
     const bot = { atk: null, rolled: false, punches: 0, parried: null }
 
@@ -89,7 +95,15 @@ export async function SimFingerprint(vite, frames = 5020) {
     for (let f = 0; f < frames; f++) {
       now += dt * 1000
       let mx, mz, run = 0
-      if (f >= 4220) {
+      if (f >= 5020) {
+        // S7: [quadro]: ação; o jogador num canto longe dos inimigos
+        if (f === 5020) { if (p.lock) game.act('local', 'lock'); p.x = 18; p.z = 18; p.hp = 30 }
+        if (f === 5130) p.hp = 50
+        if (f === 5140) game.hurt(p, 10, 0)
+        const PRESS = { 5030: 'heal', 5070: 'heal', 5110: 'eat', 5131: 'heal', 5200: 'heal', 5240: 'heal', 5280: 'eat', 5300: 'eat' }
+        game.setInput('local', { mx: f >= 5320 && f < 5360 ? -1 : 0, mz: 0, ax: 0, az: 0, run: 0 })
+        if (PRESS[f]) game.act('local', PRESS[f])
+      } else if (f >= 4220) {
         // S6: A (escudo) até 4420 · B (aparo + crítico) até 4620 · C (combo quebra a postura + crítico) até 4800 · D (guarda quebrada)
         if (f === 4220) game.spawn('romeiro', -2, 9.5, Math.PI / 2)
         if (f === 4620) game.spawn('romeiro', p.x + 3, p.z + 3, Math.PI) // C: um novo (o anterior morreu)
@@ -179,7 +193,7 @@ export async function SimFingerprint(vite, frames = 5020) {
       camera.update(dt, p, p.lock)
       if (p.safe) safeFrames++
       const c = camera.cam.position
-      if (trace) trace.push(`${f} r${calls} ${p.x.toFixed(4)},${p.z.toFixed(4)},${p.gy.toFixed(3)},${p.lv},${p.stamina.toFixed(2)} cam ${c.x.toFixed(4)},${c.z.toFixed(4)} roll ${p.rollT.toFixed(3)}${p.safe ? ' safe' : ''}${p.running ? ' run' : ''}${p.atk ? ` atk ${p.atk.kind}${p.atk.n} ${p.atk.t.toFixed(3)}` : ''} dmg ${game.targets.map((e) => e.dmg).join('/')}${p.lock ? ` lock ${p.lock.id} lost ${p.lockLost.toFixed(2)} face ${p.facing.toFixed(2)}` : ''} hp ${p.hp}${p.hurtT > 0 ? ' HURT' : ''}${p.dead ? ' DEAD' : ''}${p.guard ? ' GUARD' : ''}${p.parryT >= 0 ? ' PARRY' : ''}${p.stunT > 0 ? ' STUN' : ''}${game.enemies.map((e) => ` | ${e.kind} ${e.x.toFixed(2)},${e.z.toFixed(2)} ${e.state}${e.atk ? ':' + e.atk.name + ':' + e.atk.phase : ''} hp ${e.hp} pos ${e.posture.toFixed(1)}`).join('')}`)
+      if (trace) trace.push(`${f} r${calls} ${p.x.toFixed(4)},${p.z.toFixed(4)},${p.gy.toFixed(3)},${p.lv},${p.stamina.toFixed(2)} cam ${c.x.toFixed(4)},${c.z.toFixed(4)} roll ${p.rollT.toFixed(3)}${p.safe ? ' safe' : ''}${p.running ? ' run' : ''}${p.atk ? ` atk ${p.atk.kind}${p.atk.n} ${p.atk.t.toFixed(3)}` : ''} dmg ${game.targets.map((e) => e.dmg).join('/')}${p.lock ? ` lock ${p.lock.id} lost ${p.lockLost.toFixed(2)} face ${p.facing.toFixed(2)}` : ''} hp ${p.hp}${p.hurtT > 0 ? ' HURT' : ''}${p.dead ? ' DEAD' : ''}${p.guard ? ' GUARD' : ''}${p.parryT >= 0 ? ' PARRY' : ''}${p.stunT > 0 ? ' STUN' : ''}${p.use ? ` USE ${p.use} ${p.useT.toFixed(2)}` : ''} g${p.gourd} b${p.bread}${game.enemies.map((e) => ` | ${e.kind} ${e.x.toFixed(2)},${e.z.toFixed(2)} ${e.state}${e.atk ? ':' + e.atk.name + ':' + e.atk.phase : ''} hp ${e.hp} pos ${e.posture.toFixed(1)}`).join('')}`)
     }
     if (trace) (await import('node:fs')).writeFileSync(process.env.SIM_TRACE, trace.join('\n'))
     const r = (v) => (typeof v === 'number' ? Math.round(v * 1e6) / 1e6 : v)
@@ -187,13 +201,13 @@ export async function SimFingerprint(vite, frames = 5020) {
       players: [...game.players.values()].map((q) => [q.id, r(q.x), r(q.z), r(q.gy), q.lv, r(q.stamina), r(q.facing), q.tired]),
       door: door ? [r(door.x), r(door.z)] : null,
       camera: [r(camera.cam.position.x), r(camera.cam.position.y), r(camera.cam.position.z)],
-      rolls, safeFrames, locks, hurts, deaths, kills, s6,
+      rolls, safeFrames, locks, hurts, deaths, kills, s6, s7, items: [p.hp, p.gourd, p.bread],
       targets: game.targets.map((e) => [e.id, e.hits, e.dmg, e.posture]),
       enemies: game.enemies.map((e) => [e.id, r(e.x), r(e.z), e.hp, e.state, e.dead]),
     }
     const [, x, z, , lv, st] = state.players[0]
     const t0 = game.targets[0]
-    return { hash: createHash('sha256').update(JSON.stringify(state)).digest('hex'), summary: `jogador em (${x.toFixed(2)}, ${z.toFixed(2)}) · andar ${lv} · fôlego ${Math.round(st)} · ${rolls} rolamentos · boneco: ${t0.hits} golpes, ${t0.dmg} de dano · levou ${hurts} golpes, ${deaths} morte(s), ${kills} inimigo(s) vencido(s) · escudo ${s6.block}, aparos ${s6.parry}, guarda quebrada ${s6.guardBreak}, joelhos ${s6.broken}, críticos ${s6.critical}${door ? '' : ' · casa sem porta?'}` }
+    return { hash: createHash('sha256').update(JSON.stringify(state)).digest('hex'), summary: `jogador em (${x.toFixed(2)}, ${z.toFixed(2)}) · andar ${lv} · fôlego ${Math.round(st)} · ${rolls} rolamentos · boneco: ${t0.hits} golpes, ${t0.dmg} de dano · levou ${hurts} golpes, ${deaths} morte(s), ${kills} inimigo(s) vencido(s) · escudo ${s6.block}, aparos ${s6.parry}, guarda quebrada ${s6.guardBreak}, joelhos ${s6.broken}, críticos ${s6.critical} · curas ${s7.healed}, perdidas ${s7.lost}, vazio ${s7.empty}, vida ${p.hp}, goles ${p.gourd}, pães ${p.bread}${door ? '' : ' · casa sem porta?'}` }
   } finally {
     Math.random = realRandom
     Error.stackTraceLimit = realLimit
