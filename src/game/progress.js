@@ -10,11 +10,18 @@ import { BALANCE } from './config/balance'
 // - Itens no chão (pão, achado): E/A pega; não voltam. Atalhos: a alavanca abre o portão; do outro lado ele não abre. Salva.
 // - Névoa: não deixa passar (o chefe chega no S11).
 // Avisos: 'rest' ({ p, c, first }), 'rest-denied', 'cera' ({ p, n, e }), 'candle' (vela posta), 'candle-pick', 'candle-lost',
-// 'pickup' ({ p, it }), 'shortcut' ({ p, s }), 'locked' ({ p, s }), 'fog', 'save' (os dados do save: o main.js grava no navegador).
+// 'pickup' ({ p, it }), 'shortcut' ({ p, s }), 'locked' ({ p, s }), 'fog', 'cera-back' (matou o trasno ladrão),
+// 'save' (os dados do save: o main.js grava no navegador).
 // map = o mapa em jogo (BALANCE.maps.*). world = o que o cenário mexe (portões e alavancas; pode faltar, ex.: na arena)
 export function CreateProgress(scene, enemies, map, world = {}) {
   const cruceiros = map.cruceiros.map((c) => ({ ...c, lit: false, candles: CreateCruceiroCandles(scene, c.x, c.z, GroundAt(c.x, c.z)) }))
-  const items = (map.items || []).map((it) => ({ ...it, taken: false, view: CreateItemGlint(scene, it.x, it.z, GroundAt(it.x, it.z)) }))
+  // item com anchor: o cenário diz onde fica (ex.: o anaco no andar de cima da casa do ferreiro; lv = andar)
+  const items = (map.items || []).map((it) => {
+    const a = it.anchor && world.anchors && world.anchors[it.anchor]
+    const o = a ? { ...it, x: a.x, z: a.z, y: a.y, lv: a.lv } : { ...it, y: GroundAt(it.x, it.z), lv: 0 }
+    return { ...o, taken: false, view: CreateItemGlint(scene, o.x, o.z, o.y) }
+  }).filter((it) => it.x !== undefined)
+  const beaten = new Set() // únicos vencidos (Lobishome): não voltam
   const shortcuts = (map.shortcuts || []).map((s) => ({ ...s, open: false }))
   const fogs = map.fogs || []
   let candle = null // { x, y, z, cera, view }
@@ -31,7 +38,7 @@ export function CreateProgress(scene, enemies, map, world = {}) {
       if (dist(s.outside, p) < 2.2) return { kind: 'locked', s }
     }
     for (const f of fogs) if (dist(f, p) < 2.6) return { kind: 'fog', f }
-    for (const it of items) if (!it.taken && dist(it, p) < 1.4) return { kind: 'item', it }
+    for (const it of items) if (!it.taken && (p.lv || 0) === it.lv && dist(it, p) < 1.4) return { kind: 'item', it }
     for (const c of cruceiros) if (dist(c, p) < BALANCE.rest.range) return { kind: 'rest', c }
     return null
   }
@@ -52,6 +59,7 @@ export function CreateProgress(scene, enemies, map, world = {}) {
     else if (it.kind === 'item') {
       take(it.it)
       if (it.it.kind === 'bread') p.bread++
+      if (it.it.kind === 'gourd') { p.gourdMax++; p.gourd++ } // anaco de cabaça: +1 gole para sempre
       events.emit('pickup', { p, it: it.it })
       save(p)
     } else rest(p, it.c)
@@ -90,8 +98,13 @@ export function CreateProgress(scene, enemies, map, world = {}) {
     const c = byId(p.home)
     return c ? { x: c.x, z: c.z + 1.9, facing: Math.PI } : { x: map.start.x, z: map.start.z, facing: Math.PI }
   }
+  // venceu: a cera dele (e a que o trasno tinha roubado) é sua; único vencido entra no save
   function killed(p, e) {
-    if (e.cera) { p.cera += e.cera; events.emit('cera', { p, n: e.cera, e }) }
+    const n = e.cera + (e.stolen || 0)
+    if (e.stolen) events.emit('cera-back', { p, n: e.stolen, e })
+    e.stolen = 0
+    if (n) { p.cera += n; events.emit('cera', { p, n, e }) }
+    if (e.unique) { beaten.add(e.kind); save(p) }
   }
   function update(dt) {
     for (const c of cruceiros) c.candles.update(dt)
@@ -106,7 +119,7 @@ export function CreateProgress(scene, enemies, map, world = {}) {
       nivel: 1, atributos: { vigor: 0, alento: 0, forza: 0, destreza: 0 }, // sobe de nível no S12
       cera: p.cera, vela: candle ? { x: candle.x, y: candle.y, z: candle.z, cera: candle.cera } : null,
       cabaca: p.gourdMax, pao: p.bread, armas: ['espada'],
-      atalhos: shortcuts.filter((s) => s.open).map((s) => s.id), vencidos: [], pegos: items.filter((it) => it.taken).map((it) => it.id),
+      atalhos: shortcuts.filter((s) => s.open).map((s) => s.id), vencidos: [...beaten], pegos: items.filter((it) => it.taken).map((it) => it.id),
     }
   }
   function save(p) { events.emit('save', snapshot(p)) }
@@ -119,6 +132,8 @@ export function CreateProgress(scene, enemies, map, world = {}) {
     p.bread = d.pao ?? p.bread
     for (const s of shortcuts) if ((d.atalhos || []).includes(s.id) && !s.open) openShortcut(s, true)
     for (const it of items) if ((d.pegos || []).includes(it.id) && !it.taken) take(it)
+    for (const k of d.vencidos || []) beaten.add(k)
+    for (const e of enemies) if (e.unique && beaten.has(e.kind) && !e.dead) e.vanish()
     dropCandle()
     if (d.vela) candle = { ...d.vela, y: d.vela.y || 0, view: CreateDeathCandle(scene, d.vela.x, d.vela.z, d.vela.y || 0) }
     refill(p)

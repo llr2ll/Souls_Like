@@ -274,10 +274,73 @@ export async function SimFingerprint(vite, frames = 6100) {
       if (trace) trace.push(`v${f} ${q.x.toFixed(3)},${q.z.toFixed(3)},${q.gy.toFixed(3)} b${q.bread} gate ${world.gates.portao.isOpen}`)
     }
 
+    // ---- S10 (no vale): trasno, fondeiro, Lobishome, atalhos 1 e 3, anaco de cabaça ----
+    const s10 = { stolen: 0, back: 0, stones: 0, stoneHits: 0, stoneBlocks: 0, knockdown: 0, summons: 0, lobisVencido: null, lobisVolta: null,
+      tempSomem: null, ferreiro: null, horreo: null, anaco: null }
+    events.on('cera-stolen', ({ n }) => { s10.stolen += n })
+    events.on('cera-back', ({ n }) => { s10.back += n })
+    events.on('stone', () => s10.stones++)
+    events.on('hurt', ({ by }) => { if (by && by.kind === 'fondeiro') s10.stoneHits++ })
+    events.on('block', ({ by }) => { if (by && by.kind === 'fondeiro') s10.stoneBlocks++ })
+    events.on('knockdown', () => s10.knockdown++)
+    events.on('summon', () => s10.summons++)
+    let tr = null, fo = null, lo = null, bot2 = { warned: null }
+    for (let f = 0; f < 1500; f++) {
+      now += dt * 1000
+      let m = [0, 0], pr = null, guard = 0
+      // A: trasno rouba (o robô parado com 100 de cera), foge; o robô chega por trás e bate até matá-lo (a cera volta)
+      if (f === 0) { tp(8, 46); q.cera = 100; q.facing = Math.PI / 2; tr = g2.spawn('trasno', 12, 46, -Math.PI / 2) }
+      if (f > 150 && f < 330 && !tr.dead) {
+        if (f % 20 === 0) { Object.assign(q, { x: tr.x - Math.sin(tr.facing) * 1.4, z: tr.z - Math.cos(tr.facing) * 1.4 }); q.facing = tr.facing }
+        if (f % 6 === 0) pr = 'light'
+      }
+      // B: fondeiro a 10 m (o robô de frente): 1ª pedra no escudo, 2ª no corpo, 3ª rola para o lado no fim do aviso
+      if (f === 340) { tp(16, 44); q.facing = Math.atan2(12, -3.5); q.hp = 100; fo = g2.spawn('fondeiro', 28, 40.5, Math.atan2(-12, 3.5)) }
+      if (f > 340 && f < 600) {
+        const A = fo.atk
+        if (s10.stoneHits + s10.stoneBlocks === 0) guard = 1 // escudo até a 1ª pedra chegar
+        if (s10.stones >= 2 && A && A.name === 'sling' && A.phase === 'warn' && A.t > A.def.warn - 0.15 && bot2.warned !== A) { bot2.warned = A; pr = 'roll'; m = [1, 0] }
+      }
+      if (f === 600) { fo.vanish(); q.hp = 100 }
+      // C: Lobishome a 6 m: salta (golpe forte: derruba); com a vida baixa, uiva (2 trasnos); morre; descansar não o traz de volta
+      if (f === 620) { tp(-14, -36); q.facing = Math.PI; q.hp = 100; lo = g2.spawn('lobishome', -14, -42, 0) }
+      if (f === 700) lo.hp = 150
+      if (f === 860) { lo.hp = 5; Object.assign(q, { x: lo.x + Math.sin(lo.facing) * 1.8, z: lo.z + Math.cos(lo.facing) * 1.8, facing: lo.facing + Math.PI, downT: 0, down: false, hurtT: 0 }) }
+      if (f > 860 && f < 900 && !lo.dead && f % 5 === 0) pr = 'light'
+      if (f === 920) {
+        s10.lobisVencido = g2.save().vencidos.includes('lobishome')
+        for (const e of g2.enemies) e.reset() // como um descanso
+        s10.lobisVolta = !lo.dead
+        s10.tempSomem = g2.enemies.filter((e) => e.temp).every((e) => e.dead)
+        q.hp = 100
+      }
+      // D: atalhos 1 (quintal do ferreiro) e 3 (escada do hórreo): fechado por fora, abre do lado certo, dá para passar
+      if (f === 940) tp(-24, 16.8)
+      if (f === 942) pr = 'use'
+      if (f === 960) tp(-22.4, 13.4)
+      if (f === 962) pr = 'use'
+      if (f > 970 && f < 1040) m = f < 990 ? go({ x: -24, z: 13 }) : go({ x: -24, z: 24 })
+      if (f === 1040) s10.ferreiro = Math.round(q.z * 100) / 100
+      if (f === 1060) tp(-44, -14.2)
+      if (f === 1062) pr = 'use'
+      if (f === 1080) tp(-45.6, -18.2)
+      if (f === 1082) pr = 'use'
+      if (f > 1090 && f < 1160) m = f < 1110 ? go({ x: -44, z: -18 }) : go({ x: -44, z: -12.5 })
+      if (f === 1160) s10.horreo = Math.round(q.z * 100) / 100
+      // E: anaco de cabaça no andar de cima da casa do ferreiro
+      if (f === 1180) { const a = world.anchors.anaco; Object.assign(q, { x: a.x, z: a.z, gy: a.y, lv: 1, jy: 0, vy: 0 }) }
+      if (f === 1190) pr = 'use'
+      if (f === 1200) s10.anaco = [q.lv, q.gourdMax]
+      g2.setInput('local', { mx: m[0], mz: m[1], ax: 0, az: 0, run: 0, guard })
+      if (pr) g2.act('local', pr)
+      g2.update(dt)
+      if (trace) trace.push(`w${f} ${q.x.toFixed(3)},${q.z.toFixed(3)},${q.gy.toFixed(3)} lv${q.lv} hp ${q.hp} cera ${q.cera}${q.down ? ' DOWN' : ''}${q.safe ? ' safe' : ''} ${g2.enemies.filter((e) => !e.dead).map((e) => `${e.kind} ${e.x.toFixed(1)},${e.z.toFixed(1)} ${e.state}${e.atk ? ':' + e.atk.name + ':' + e.atk.phase : ''} hp ${e.hp}`).join(' | ')}`)
+    }
+
     if (trace) (await import('node:fs')).writeFileSync(process.env.SIM_TRACE, trace.join('\n'))
     const r = (v) => (typeof v === 'number' ? Math.round(v * 1e6) / 1e6 : v)
     const state = {
-      s9, vale: [r(q.x), r(q.z), r(q.gy), q.bread, q.home],
+      s9, s10, vale: [r(q.x), r(q.z), r(q.gy), q.bread, q.home, q.cera, q.gourdMax],
       players: [...game.players.values()].map((q) => [q.id, r(q.x), r(q.z), r(q.gy), q.lv, r(q.stamina), r(q.facing), q.tired]),
       door: door ? [r(door.x), r(door.z)] : null,
       camera: [r(camera.cam.position.x), r(camera.cam.position.y), r(camera.cam.position.z)],
@@ -287,7 +350,7 @@ export async function SimFingerprint(vite, frames = 6100) {
     }
     const [, x, z, , lv, st] = state.players[0]
     const t0 = game.targets[0]
-    return { hash: createHash('sha256').update(JSON.stringify(state)).digest('hex'), summary: `jogador em (${x.toFixed(2)}, ${z.toFixed(2)}) · andar ${lv} · fôlego ${Math.round(st)} · ${rolls} rolamentos · boneco: ${t0.hits} golpes, ${t0.dmg} de dano · levou ${hurts} golpes, ${deaths} morte(s), ${kills} inimigo(s) vencido(s) · escudo ${s6.block}, aparos ${s6.parry}, guarda quebrada ${s6.guardBreak}, joelhos ${s6.broken}, críticos ${s6.critical} · curas ${s7.healed}, perdidas ${s7.lost}, vazio ${s7.empty}, vida ${p.hp}, goles ${p.gourd}, pães ${p.bread} · descansos ${s8.rest}, velas ${s8.candle}, pegas ${s8.pick}, perdidas ${s8.lost}, cera ${p.cera}, save ${s8.roundtrip ? 'ok' : 'DIFERENTE'} · vale: itens ${s9.pickups.length}, portão fechado ${s9.locked}, atalho ${s9.shortcut}, fim do corredor (${s9.laneEnd}), névoa ${s9.fog} (parou em z ${s9.fogZ}), rio (parou em z ${s9.riverZ}), save ${s9.roundtrip ? 'ok' : 'DIFERENTE'}${door ? '' : ' · casa sem porta?'}` }
+    return { hash: createHash('sha256').update(JSON.stringify(state)).digest('hex'), summary: `jogador em (${x.toFixed(2)}, ${z.toFixed(2)}) · andar ${lv} · fôlego ${Math.round(st)} · ${rolls} rolamentos · boneco: ${t0.hits} golpes, ${t0.dmg} de dano · levou ${hurts} golpes, ${deaths} morte(s), ${kills} inimigo(s) vencido(s) · escudo ${s6.block}, aparos ${s6.parry}, guarda quebrada ${s6.guardBreak}, joelhos ${s6.broken}, críticos ${s6.critical} · curas ${s7.healed}, perdidas ${s7.lost}, vazio ${s7.empty}, vida ${p.hp}, goles ${p.gourd}, pães ${p.bread} · descansos ${s8.rest}, velas ${s8.candle}, pegas ${s8.pick}, perdidas ${s8.lost}, cera ${p.cera}, save ${s8.roundtrip ? 'ok' : 'DIFERENTE'} · vale: itens ${s9.pickups.length}, portão fechado ${s9.locked}, atalho ${s9.shortcut}, fim do corredor (${s9.laneEnd}), névoa ${s9.fog} (parou em z ${s9.fogZ}), rio (parou em z ${s9.riverZ}), save ${s9.roundtrip ? 'ok' : 'DIFERENTE'} · S10: roubada ${s10.stolen}/devolvida ${s10.back}, pedras ${s10.stones} (escudo ${s10.stoneBlocks}, acertou ${s10.stoneHits}), derrubado ${s10.knockdown}, trasnos chamados ${s10.summons}, Lobishome no save ${s10.lobisVencido}, volta ${s10.lobisVolta}, chamados somem ${s10.tempSomem}, ferreiro z ${s10.ferreiro}, hórreo z ${s10.horreo}, anaco [andar, goles] ${s10.anaco}${door ? '' : ' · casa sem porta?'}` }
   } finally {
     Math.random = realRandom
     Error.stackTraceLimit = realLimit

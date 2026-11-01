@@ -141,8 +141,10 @@ export function CreateZombieModel(v = 0) {
   }
   function restore() { for (const k in parts) { parts[k].mesh.visible = true; parts[k].stump.visible = false } }
   // levou golpe: fica branco por um instante (some sozinho no animate)
-  let flashT = 0
+  let flashT = 0, base = MAT.solid
   function flash(t = 0.08) { if (flashT <= 0) for (const m of meshes) m.material = FLASH_MAT; flashT = t }
+  // pelagem/roupa de uma cor só (ex.: o Lobishome): troca o material de todas as partes (o piscar volta para ele)
+  function skin(mat) { base = mat; if (flashT <= 0) for (const m of meshes) m.material = mat }
   const has = (name) => parts[name].mesh.visible
 
   // jeito de cada um: manca de uma perna, curvado, cabeça caída para um lado, quantos braços estende
@@ -151,7 +153,7 @@ export function CreateZombieModel(v = 0) {
   let t = R() * 10, phase = R() * 6, moveW = 0, reachW = 0, lungeW = 0, grabW = 0, staggerW = 0, crouchW = 0, fall = 0, flinch = 0
 
   function animate(dt, e) {
-    if (flashT > 0 && (flashT -= dt) <= 0) for (const m of meshes) m.material = MAT.solid
+    if (flashT > 0 && (flashT -= dt) <= 0) for (const m of meshes) m.material = base
     t += dt
     const s = e.state, sp = e.vel
     moveW = damp(moveW, clamp(sp / 1.1, 0, 1), 8, dt)
@@ -237,5 +239,6 @@ export function CreateZombieModel(v = 0) {
 
   // mãos: o jogo pendura armas aqui (eixo do braço = -Y; a mão fica na ponta)
   const hands = { L: arms[0].hand, R: arms[1].hand }
-  return { root, animate, sever, restore, has, flash, hands }
+  // cabeça: o jogo pendura coisas nela (gorro do trasno) ou troca (cabeça de lobo: esconda head.children[0])
+  return { root, animate, sever, restore, has, flash, skin, hands, head: neck }
 }

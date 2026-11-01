@@ -99,6 +99,20 @@ Cada PR acrescenta os itens dele aqui.
 | 82 | **Subida e castro**: pelo portão norte do mosteiro | Subida com dois romeiros, o cruceiro do castro e uma parede de névoa: "A névoa fecha a entrada do castro… por enquanto" | ☐ |
 | 83 | **Souto**: a oeste da subida | Bosque de castanheiros com uma clareira vazia (o Lobishome chega no S10) | ☐ |
 | 84 | **FPS no vale** | Anote o FPS andando pela vila e no mosteiro | ☐ |
+| 85 | **Trasno** (S10, rua de cima, perto do hórreo) | Pequeno, de gorro vermelho. Agacha dando uma risadinha e salta em você | ☐ |
+| 86 | **Trasno rouba**: deixe ele acertar com cera no bolso | "Um trasno roubou … de cera!" e ele foge correndo. Alcance e mate: "A cera roubada voltou". Descansando antes, a cera some | ☐ |
+| 87 | **Trasno erra**: role para o lado no salto | Ele cai de cara no chão e fica um instante parado (bata!) | ☐ |
+| 88 | **Fondeiro** (ponta oeste da rua de cima; escada da igreja; alto da subida) | Gira a funda com um zunido que sobe e atira uma pedra | ☐ |
+| 89 | **Pedra no escudo**: segure o escudo de frente | Baque de madeira, a vida não desce. Sem escudo: dói. Rolando: passa | ☐ |
+| 90 | **Fondeiro de perto** | Chuta e foge. Depois do chute dá para bater | ☐ |
+| 91 | **Lobishome** (clareira do souto, a oeste da subida) | Grande, peludo, cabeça de lobo. Rosna ao te ver | ☐ |
+| 92 | **Zarpaço**: perto dele | Puxa os braços para trás (rosnado) e dá duas garradas | ☐ |
+| 93 | **Salto**: fique a meia distância | Agacha e salta longe. Pegou: você cai no chão e levanta (sem levar outro golpe enquanto levanta) | ☐ |
+| 94 | **Uivo**: bata nele até tirar um quarto da vida | Para e uiva alto: aparecem 2 trasnos numa fumacinha. Bata enquanto ele uiva | ☐ |
+| 95 | **Vencer o Lobishome** | 400 de cera. Descansando ou morrendo, ele **não** volta (nem fechando a página) | ☐ |
+| 96 | **Atalho 1**: na rua de cima, no vão entre a casa do ferreiro (2 andares) e a vizinha, ache o portão no muro | "Tirar a tranca do portão": abre e dá direto na rua de baixo (perto da fogueira). Do lado da rua de baixo: "Não abre deste lado" | ☐ |
+| 97 | **Anaco de cabaça**: suba a escada da casa do ferreiro | Um brilho num móvel lá em cima: "Anaco de cabaça" — a cabaça passa a ter 5 goles | ☐ |
+| 98 | **Atalho 3**: no souto, junto ao muro sul (perto do hórreo) | "Baixar a escada do hórreo": abre a passagem para a rua de cima. De baixo: "Alto demais. Não dá para subir daqui." | ☐ |
 ## Anotar o FPS
 O FPS aparece em verde no canto de cima, à direita. Anote depois de 1 minuto andando pela arena.
 

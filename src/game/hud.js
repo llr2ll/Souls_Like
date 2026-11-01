@@ -72,10 +72,10 @@ export function CreateHud(tune) {
     prompt(it, key) {
       const text = !it ? ''
         : it.kind === 'candle' ? `${key} · Pegar a cera (${it.cera})`
-        : it.kind === 'lever' ? `${key} · Puxar a alavanca`
-        : it.kind === 'locked' ? `${key} · Empurrar o ${it.s.name}`
+        : it.kind === 'lever' ? `${key} · ${it.s.label || 'Puxar a alavanca'}`
+        : it.kind === 'locked' ? `${key} · Abrir`
         : it.kind === 'fog' ? `${key} · Atravessar a névoa`
-        : it.kind === 'item' ? `${key} · ${it.it.kind === 'bread' ? 'Pegar pão de milho' : `Ler: ${it.it.title}`}`
+        : it.kind === 'item' ? `${key} · ${it.it.kind === 'note' ? `Ler: ${it.it.title}` : `Pegar: ${it.it.kind === 'bread' ? 'pão de milho' : it.it.title}`}`
         : `${key} · Descansar no ${it.c.name}`
       if (text === lastPrompt) return
       lastPrompt = text

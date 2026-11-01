@@ -43,11 +43,17 @@ function Wire(camera) {
   events.on('swing', ({ p, kind }) => sfx('swing', { x: p.x, z: p.z, heavy: kind === 'heavy' })) // assobio da lâmina
   events.on('hit', ({ x, z, kind }) => { sfx('slice', { x, z }); if (kind === 'heavy' || kind === 'critical') sfx('stomp', { x, z }) })
   events.on('lock', ({ target }) => sfx('ui', { f: target ? 1250 : 700 })) // travou / soltou: um "tic"
-  // inimigos: cada golpe tem o seu som de aviso (DESIGN 8): pancada = gemido grave, dois cortes = rosnado curto
-  const WARN = { smash: 'growl', cuts: 'snarl' }
-  events.on('enemy-alert', (e) => sfx('moan', { x: e.x, z: e.z }))
+  // inimigos: cada golpe tem o seu som de aviso (DESIGN 8): pancada = gemido grave, dois cortes = rosnado curto,
+  // salto do trasno = risadinha, funda = zunido que sobe, chute = grunhido, zarpaço = rosnado, salto do Lobishome = uivo curto, uivo
+  const WARN = { smash: 'growl', cuts: 'snarl', leap: 'giggle', sling: 'whir', kick: 'grunt', claws: 'growl', pounce: 'snarl', howl: 'howl' }
+  const ALERT = { trasno: 'giggle', lobishome: 'growl' }
+  events.on('enemy-alert', (e) => sfx(ALERT[e.kind] || 'moan', { x: e.x, z: e.z }))
   events.on('enemy-warn', ({ e, name }) => sfx(WARN[name] || 'growl', { x: e.x, z: e.z }))
-  events.on('enemy-swing', ({ e, name }) => sfx('swing', { x: e.x, z: e.z, heavy: name === 'smash' }))
+  events.on('enemy-swing', ({ e, name }) => { if (name !== 'howl' && name !== 'sling') sfx('swing', { x: e.x, z: e.z, heavy: name === 'smash' || name === 'pounce' }) })
+  events.on('enemy-land', ({ e }) => sfx('land', { x: e.x, z: e.z }))
+  events.on('stone', (s) => sfx('throw', s))
+  events.on('stone-wall', (s) => sfx('stone', s))
+  events.on('knockdown', (p) => sfx('bodyfall', { x: p.x, z: p.z }))
   events.on('enemy-stagger', (e) => sfx('zstagger', { x: e.x, z: e.z }))
   events.on('enemy-death', (e) => sfx('zdeath', { x: e.x, z: e.z }))
   events.on('hurt', ({ p }) => { sfx('hurt', { x: p.x, z: p.z }); sfx('impact', { x: p.x, z: p.z }) })
@@ -166,10 +172,14 @@ function WireProgress(fx) {
   events.on('pickup', ({ p, it }) => {
     sfx('pin', at(p))
     if (it.kind === 'bread') Note('Pão de milho')
+    else if (it.kind === 'gourd') { Title('Anaco de cabaça'); Note('A cabaça ganhou um gole a mais') }
     else Paper(it.title, it.text)
   })
   events.on('shortcut', ({ s }) => { sfx('bang', { x: s.gate.x, z: s.gate.z }); sfx('dooropen', { x: s.gate.x, z: s.gate.z }); Title('Atalho aberto') })
-  events.on('locked', () => { sfx('bang'); Note('Fechado. Não abre deste lado.') })
+  events.on('locked', ({ s }) => { sfx('bang'); Note(s.locked || 'Fechado. Não abre deste lado.') })
+  events.on('cera-stolen', ({ n }) => Note(`Um trasno roubou ${n} de cera! Pegue ele antes de descansar`))
+  events.on('cera-back', ({ n }) => Note(`A cera roubada voltou: ${n}`))
+  events.on('summon', ({ e }) => fx.puff(e.x, (e.y || 0) + 0.3, e.z, 0x8a8a90, 0.7, 0.8))
   events.on('fog', () => Note('A névoa fecha a entrada do castro… por enquanto.'))
   const death = document.getElementById('death')
   events.on('death', () => { sfx('gameover'); setTimeout(() => death.classList.add('on'), 500) })

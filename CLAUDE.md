@@ -53,6 +53,9 @@ npm run build    # gera dist/ (para hospedar)
      S9 (+42 s, outro mapa no mesmo processo: `ResetColliders` + `ResetBuildings` e monta o vale): lê a inscrição, o rio barra,
      atravessa a ponte e descansa no ✝ da Ponte, pega pão, portão fechado por fora, alavanca por dentro, desce o corredor até o
      prado, a névoa barra, salva e carrega. As cenas S0–S8 continuam na arena.
+     S10 (+50 s no vale) trasno rouba e foge, matá-lo devolve a cera; fondeiro (escudo segura, sem escudo acerta, rolar escapa);
+     Lobishome derruba com o salto, uiva (2 trasnos), morre, não volta no "descanso" nem no save, os chamados somem; atalhos 1 e 3
+     (fechado por fora, abre do lado certo, passa); anaco no andar de cima (+1 gole).
      **PR de organização tem de dar igual.** PR que muda a jogabilidade de propósito: `npm run check -- --update-sim` e dizer isso na descrição.
      Cada PR de jogabilidade acrescenta a sua cena ao roteiro. `SIM_TRACE=arquivo node scripts/sim.mjs` grava o rastro quadro a quadro.
 - `npm run smoke` — teste automático (~1 min). Compila, sobe a página na porta **5199**, abre no Chromium sem tela, anda com o teclado,
@@ -95,6 +98,9 @@ src/game/                 este jogo
   hud.js                  página, não 3D: vida, fôlego, vida e postura do alvo travado, placar (cabaça, pão), borda vermelha
   enemies/enemy.js        inimigo genérico: vê, geme, aproxima, avisa, golpeia, recua, espera, tropeça, morre, volta para casa
   enemies/romeiro.js      Romeiro perdido: humanoide do survivor + bordão e foice, poses da pancada e dos dois cortes
+  enemies/trasno.js       trasno: humanoide em escala 0,55 com gorro; salta, rouba cera e foge
+  enemies/fondeiro.js     fondeiro: funda que gira (aviso) e pedra; de perto chuta e foge
+  enemies/lobishome.js    Lobishome (elite, não renasce): pelagem, cabeça de lobo; zarpaço duplo, salto que derruba, uivo
   fx/trail.js             rastro da lâmina (só no instante de dano)
   fx/lock-mark.js         marca do alvo travado (círculo que pulsa, visível através das coisas)
   world/dummy.js          boneco de treino (pisca branco e balança ao levar golpe; não morre)
@@ -117,6 +123,8 @@ src/game/                 este jogo
   `block`, `guard-break`, `parry-try`, `parry` → sons, faíscas (`shared/fx/effects.js`), vibração. `enemy-broken` → clarão.
   Golpe `critical` → aproximação de 5% da câmera (`camera.punch`). Aparo certo deixa o jogo lento por 0,12 s (`slowT` no `game.js`).
   Inimigos: `enemy-alert` (gemido), `enemy-warn` ({ e, name }: som próprio de cada golpe), `enemy-swing`, `enemy-stagger`, `enemy-death`.
+  S10: `stone`, `stone-wall`, `enemy-land` (baque do salto), `cera-stolen`, `cera-back`, `summon` (fumaça), `knockdown`.
+  Som de aviso por golpe em `main.js` (`WARN`): risadinha (salto do trasno), zunido (funda), uivo etc. (receitas novas no `sfx.js`).
   `use` ({ p, what: 'drink' | 'eat' }) → gole/mastigar; `healed` → sininhos + anel dourado; `use-lost` e `use-empty` → som seco
   (vazio também avisa "A cabaça está vazia").
   Progresso (`progress.js` → `WireProgress()` em `main.js`): `rest` ({ first }: "Vela acesa" no 1º), `rest-denied`, `cera` (inimigo
@@ -200,6 +208,13 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
 - Itens (`map.items`): `bread` (+1 pão) ou `note` (achado: papel com título e texto na tela). Pegos não voltam (save: `pegos`).
   Atalhos (`map.shortcuts`): alavanca (`lever`) abre o portão (`gate`); perto do lado de fora (`outside`): "Não abre deste lado".
   Save: `atalhos`. Névoa (`map.fogs`): colisor + aviso; o chefe chega no S11.
+- Inimigo genérico (S10): cada golpe pode ter `leap` (salto, com altura `leapH`), `projectile` (pedra: `game.js` · `stones`; o escudo de
+  frente segura; aparar pedra conta como bloqueio; parede para), `steal` (rouba e foge), `flee` (foge depois), `summon` (chama ajuda,
+  uma vez por luta; os chamados têm `temp` e somem no próximo reset). `tune.needSight` (só atira vendo), `tune.unique` (vencido não
+  volta; save `vencidos`; ao carregar, `e.vanish()`). Golpe `strong` derruba o jogador (`p.down` 0,9 s + levantar invulnerável 0,4 s;
+  `player.js` cai com `p.down`). Matar o trasno devolve `e.stolen`; descansar antes perde (o reset zera).
+- Atalhos têm `label` (o que aparece na alavanca) e `locked` (o aviso do lado errado). O anaco (`kind: 'gourd'`) usa `anchor`:
+  o cenário diz onde fica (um móvel do andar de cima da casa do ferreiro); itens têm andar (`lv`) e só se pegam no mesmo andar.
 - **Não regrave arquivos pelo PowerShell** (`Get-Content`/`WriteAllText`): no Windows ele lê como Windows-1252 e estraga os acentos
   (aconteceu com o `smoke.mjs` no S8; consertado no S9). Use o Edit/Write ou o node.
 - Inimigos: o `main.js` põe os de `map.enemies` com `game.spawn(tipo, x, z, ry)`; o replay põe os dele na hora da cena (senão
@@ -278,3 +293,7 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
   rua de baixo (3 romeiros sentados ao lume), rua de cima, adro e cemitério, mosteiro com claustro, corredor do atalho com portão e
   alavanca, souto (vazio até o S10), subida, ✝ do Castro, castro fechado pela névoa. 16 romeiros, 3 pães e 6 achados no chão.
   É o mapa padrão; `?arena` abre a arena. Smoke: arena + volta no vale. Conserto dos acentos do `smoke.mjs`.
+- **s10-trasno-fondeiro-lobishome (S10)** — trasno (salta, rouba 10% da cera e foge; matar devolve), fondeiro (funda: pedra de 12
+  que o escudo segura; chute e foge), Lobishome no souto (zarpaço duplo, salto forte que derruba, uivo que chama 2 trasnos; 400 de
+  cera; não renasce). Atalho 1 (portão do quintal do ferreiro, abre pela rua de cima) e 3 (escada do hórreo, desce do souto). Anaco
+  de cabaça no andar de cima da casa do ferreiro (+1 gole). `zombie-model.js`: `head` e `skin`. `player.js`: cai com `p.down`.
