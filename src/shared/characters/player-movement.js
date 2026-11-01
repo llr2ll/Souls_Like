@@ -26,7 +26,10 @@ export function UpdatePlayerMovement(p, dt, colliders, tune = DEFAULT_MOVE) {
 
   // corrida gasta fôlego; se zerar, só volta a correr depois de recuperar
   p.running = !!run && k > 0.3 && !p.tired && p.stamina > 0 && wade < 0.3 && !p.aiming && !p.held
-  p.stamina = p.swim ? Math.max(0, p.stamina - tune.staminaSwim * dt) : p.running ? Math.max(0, p.stamina - tune.staminaRun * dt) : Math.min(100, p.stamina + tune.staminaRegen * dt)
+  // recuperação espera tune.staminaDelay s sem gastar (quem gasta fora daqui zera p.restT); máximo = p.staminaMax
+  p.restT = p.running || p.swim ? 0 : (p.restT || 0) + dt
+  const regen = p.restT >= (tune.staminaDelay || 0) ? tune.staminaRegen * dt : 0
+  p.stamina = p.swim ? Math.max(0, p.stamina - tune.staminaSwim * dt) : p.running ? Math.max(0, p.stamina - tune.staminaRun * dt) : Math.min(p.staminaMax || 100, p.stamina + regen)
   p.drown = p.swim && p.stamina <= 0
   if (p.stamina <= 0) p.tired = true
   else if (p.tired && p.stamina >= tune.tiredUntil) p.tired = false

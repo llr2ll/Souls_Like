@@ -1,37 +1,44 @@
-// Jogador local (mouse + teclado): só existe se uma vaga "Mouse e teclado" foi escolhida no menu.
-// WASD move · mouse mira · clique esquerdo ataca · clique direito só mira · Shift corre · Espaço pula · E entra/sai do veículo
-// Q / F / G = botões da classe · V empurra (solta do agarrão, pisa em zumbi caído) · E usa
-// extra = teclas do jogo, somadas às padrão (ex.: { r: 'reload', 1: 'carbine' })
-export const DEFAULT_KEYS = { q: 'b1', f: 'b2', g: 'b3', v: 'shove', e: 'use' }
-export function BindKeyboard(game, extra = {}) {
-  const ACT = { ...DEFAULT_KEYS, ...extra }
-  const keys = {}
-  let mx = 0, my = 0, left = false, right = false
-  const active = () => game.players.has('local')
+// Teclado e mouse de um jogador. WASD move; o resto vem do mapa do jogo (igual ao controle, engine/input/gamepad.js):
+//   map = { hold: { tecla: campo do setInput }, press: { tecla: ação } }
+// Nomes: letras e números ('e', '1'), 'space', 'shift', 'mouse-left', 'mouse-right', 'mouse-middle', 'wheel-up', 'wheel-down'.
+// 'shift+tecla' em press: com Shift segurado, vale essa combinação (e ela "gasta" o botão: não conta como segurar).
+// Manda o mesmo contrato do controle (engine/input/contract.js): setInput(id, { mx, mz, ax, az, run }) e act(id, ação).
+const MOUSE = ['mouse-left', 'mouse-middle', 'mouse-right']
+const keyName = (e) => (e.code === 'Space' ? 'space' : e.key.toLowerCase())
+
+export function BindKeyboard(game, map, id = 'local') {
+  const down = new Set() // teclas e botões do mouse segurados (sem os que viraram combinação com Shift)
+  const active = () => game.players.has(id)
   const typing = (e) => e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')
 
   function push() {
     if (!active()) return
-    const x = (keys.d ? 1 : 0) - (keys.a ? 1 : 0), z = (keys.s ? 1 : 0) - (keys.w ? 1 : 0)
-    const ax = mx - innerWidth / 2, az = my - innerHeight / 2
-    const l = Math.hypot(ax, az) || 1, on = left || right
-    game.setInput('local', { run: !!keys.shift, mx: x, mz: z, ax: on ? ax / l : 0, az: on ? az / l : 0, fire: left ? 1 : 0 })
+    const x = (down.has('d') ? 1 : 0) - (down.has('a') ? 1 : 0), z = (down.has('s') ? 1 : 0) - (down.has('w') ? 1 : 0)
+    const l = Math.hypot(x, z) || 1
+    const msg = { mx: x / l, mz: z / l, ax: 0, az: 0, run: 0 }
+    for (const k in map.hold) if (down.has(k)) msg[map.hold[k]] = 1
+    game.setInput(id, msg)
   }
-  addEventListener('keydown', (e) => {
-    if (typing(e)) return
-    const k = e.key.toLowerCase()
-    if (k === 'h') return document.getElementById('room')?.classList.toggle('hidden')
-    if (!active()) return
-    if (e.code === 'Space') { e.preventDefault(); game.act('local', 'jump') }
-    if (k === 'shift') keys.shift = true
-    if ('wasd'.includes(k) && k.length === 1) keys[k] = true
-    if (ACT[k] && !e.repeat) game.act('local', ACT[k])
+  // apertou: combinação com Shift (se existir) ou a tecla sozinha
+  function press(k, repeat) {
+    const combo = down.has('shift') && map.press['shift+' + k]
+    if (combo) { if (!repeat) game.act(id, combo); return }
+    down.add(k)
+    if (map.press[k] && !repeat) game.act(id, map.press[k])
     push()
+  }
+  function release(k) { down.delete(k); push() }
+
+  addEventListener('keydown', (e) => {
+    if (typing(e) || !active()) return
+    const k = keyName(e)
+    if (k === 'space') e.preventDefault() // não rola a página
+    press(k, e.repeat)
   })
-  addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; push() })
-  addEventListener('mousemove', (e) => { mx = e.clientX; my = e.clientY; push() })
-  addEventListener('mousedown', (e) => { if (!active()) return; if (e.button === 2) right = true; else left = true; push() })
-  addEventListener('mouseup', (e) => { if (e.button === 2) right = false; else left = false; push() })
+  addEventListener('keyup', (e) => release(keyName(e)))
+  addEventListener('mousedown', (e) => { if (active() && MOUSE[e.button]) press(MOUSE[e.button], false) })
+  addEventListener('mouseup', (e) => { if (MOUSE[e.button]) release(MOUSE[e.button]) })
+  addEventListener('wheel', (e) => { if (active() && e.deltaY) { const a = map.press[e.deltaY < 0 ? 'wheel-up' : 'wheel-down']; if (a) game.act(id, a) } }, { passive: true })
   addEventListener('contextmenu', (e) => { if (active()) e.preventDefault() })
-  addEventListener('blur', () => { for (const k in keys) keys[k] = false; left = right = false; push() })
+  addEventListener('blur', () => { down.clear(); push() })
 }

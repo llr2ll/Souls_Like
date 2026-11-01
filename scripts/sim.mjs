@@ -4,13 +4,15 @@
 // Roteiro: S0 (0–60 s) anda em várias direções (batendo no muro, no cruceiro e nas pedras), corre às vezes,
 // vai até a porta da casa, entra e sai. S1 (60–70 s) joga com um controle de mentira: stick inclinado pela metade (anda devagar),
 // stick todo na diagonal segurando B (corre), stick quase solto (fica parado). A câmera acompanha o tempo todo (antecipação).
+// S2 (70–82 s): toca o botão de rolar (rola), rola duas vezes seguidas (a 2ª fica guardada), rola até o fôlego acabar,
+// segura o botão (corre), rola pela ação 'roll' sem direção (para a frente) e espera o fôlego voltar.
 // Cada PR que cria jogabilidade acrescenta a sua cena ao roteiro.
 // Rode sempre em processo novo (node scripts/sim.mjs): o Three.js e o Vite guardam estado entre rodadas.
 // SIM_TRACE=arquivo grava um rastro quadro a quadro (para achar onde dois replays se separam).
 // (Mecanismo copiado do survivor e4314ee; o roteiro é deste jogo.)
 import { createHash } from 'node:crypto'
 
-export async function SimFingerprint(vite, frames = 2100) {
+export async function SimFingerprint(vite, frames = 2460) {
   // o motor de áudio registra teclas ao carregar; fora do navegador isso não existe
   globalThis.addEventListener ??= () => {}
   // sorteio e relógio fixos
@@ -38,6 +40,9 @@ export async function SimFingerprint(vite, frames = 2100) {
     const { CreateCamera } = await load('/src/game/camera.js')
     const { ReadPad, PAD } = await load('/src/engine/input/gamepad.js')
     const { BALANCE } = await load('/src/game/config/balance.js')
+    const { events } = await load('/src/engine/core/events.js')
+    let rolls = 0, safeFrames = 0
+    events.on('roll', () => rolls++)
 
     const scene = new THREE.Scene()
     SetGround(() => 0); SetDeepTest(TooDeep)
@@ -59,7 +64,15 @@ export async function SimFingerprint(vite, frames = 2100) {
     for (let f = 0; f < frames; f++) {
       now += dt * 1000
       let mx, mz, run = 0
-      if (f >= 1800) {
+      if (f >= 2100) {
+        // S2: [quadro de início, mx, mz, botão de rolar/correr]. Tocar = 3 quadros (0,1 s) segurando
+        const S2 = [[2100, 0, 0, 0], [2130, -1, 0, 1], [2133, -1, 0, 0], [2170, 0, 1, 1], [2173, 0, 1, 0], [2183, 0, 1, 1], [2185, 0, 1, 0],
+          ...[0, 1, 2, 3, 4, 5, 6, 7].flatMap((i) => [[2220 + i * 18, i % 2 ? 1 : -1, -0.3, 1], [2223 + i * 18, i % 2 ? 1 : -1, -0.3, 0]]),
+          [2370, 1, 0, 0], [2380, 1, 0, 1], [2440, 0, 0, 0]]
+        const seg = S2.filter((s) => s[0] <= f).pop()
+        game.setInput('local', { mx: seg[1], mz: seg[2], ax: 0, az: 0, run: seg[3] })
+        if (f === 2445) game.act('local', 'roll')
+      } else if (f >= 1800) {
         // S1: controle (o mesmo caminho do jogo: ReadPad → setInput)
         const pad = f < 1890 ? fakePad(0.6, 0) : f < 1980 ? fakePad(0.7, 0.7, ['B']) : f < 2070 ? fakePad(0.15, -0.1) : fakePad(0, 0)
         game.setInput('local', ReadPad(pad, BALANCE.pad).msg)
@@ -74,8 +87,9 @@ export async function SimFingerprint(vite, frames = 2100) {
       game.update(dt)
       reg.UpdateDoors(dt, [...game.players.values()], [])
       camera.update(dt, p)
+      if (p.safe) safeFrames++
       const c = camera.cam.position
-      if (trace) trace.push(`${f} r${calls} ${p.x.toFixed(4)},${p.z.toFixed(4)},${p.gy.toFixed(3)},${p.lv},${p.stamina.toFixed(2)} cam ${c.x.toFixed(4)},${c.z.toFixed(4)}`)
+      if (trace) trace.push(`${f} r${calls} ${p.x.toFixed(4)},${p.z.toFixed(4)},${p.gy.toFixed(3)},${p.lv},${p.stamina.toFixed(2)} cam ${c.x.toFixed(4)},${c.z.toFixed(4)} roll ${p.rollT.toFixed(3)}${p.safe ? ' safe' : ''}${p.running ? ' run' : ''}`)
     }
     if (trace) (await import('node:fs')).writeFileSync(process.env.SIM_TRACE, trace.join('\n'))
     const r = (v) => (typeof v === 'number' ? Math.round(v * 1e6) / 1e6 : v)
@@ -83,9 +97,10 @@ export async function SimFingerprint(vite, frames = 2100) {
       players: [...game.players.values()].map((q) => [q.id, r(q.x), r(q.z), r(q.gy), q.lv, r(q.stamina), r(q.facing), q.tired]),
       door: door ? [r(door.x), r(door.z)] : null,
       camera: [r(camera.cam.position.x), r(camera.cam.position.y), r(camera.cam.position.z)],
+      rolls, safeFrames,
     }
     const [, x, z, , lv, st] = state.players[0]
-    return { hash: createHash('sha256').update(JSON.stringify(state)).digest('hex'), summary: `jogador em (${x.toFixed(2)}, ${z.toFixed(2)}) · andar ${lv} · fôlego ${Math.round(st)}${door ? '' : ' · casa sem porta?'}` }
+    return { hash: createHash('sha256').update(JSON.stringify(state)).digest('hex'), summary: `jogador em (${x.toFixed(2)}, ${z.toFixed(2)}) · andar ${lv} · fôlego ${Math.round(st)} · ${rolls} rolamentos${door ? '' : ' · casa sem porta?'}` }
   } finally {
     Math.random = realRandom
     Error.stackTraceLimit = realLimit

@@ -35,6 +35,8 @@ npm run build    # gera dist/ (para hospedar)
   2. **Jogo (replay):** `scripts/sim.mjs` joga 70 s com sorteio e relógio fixos e compara o hash (jogador + câmera) com `scripts/sim-fingerprint.txt`.
      Roteiro: S0 (0–60 s) anda em 8 direções (bate no muro, no cruceiro, nas pedras), corre às vezes, vai até a porta da casa, entra e sai.
      S1 (60–70 s) controle de mentira: stick pela metade (anda devagar), diagonal segurando B (corre), stick quase solto (parado).
+     S2 (70–82 s) toques no botão de rolar (rola), 2º toque guardado, rolar até zerar o fôlego, segurar (corre), `act('roll')`.
+     O hash conta também quantos rolamentos houve e quantos quadros invulneráveis.
      **PR de organização tem de dar igual.** PR que muda a jogabilidade de propósito: `npm run check -- --update-sim` e dizer isso na descrição.
      Cada PR de jogabilidade acrescenta a sua cena ao roteiro. `SIM_TRACE=arquivo node scripts/sim.mjs` grava o rastro quadro a quadro.
 - `npm run smoke` — teste automático (~1 min). Compila, sobe a página na porta **5199**, abre no Chromium sem tela, anda com o teclado,
@@ -57,7 +59,7 @@ docs/                     DESIGN (direção do jogo), ORIGEM (de onde veio cada 
 src/engine/               genérico (copiado do survivor; novos: world/ground.js, input/gamepad.js)
   core/                   loop.js (laço, dt ≤ 0,05), events.js (avisos), memo.js (cache com limite)
   render/                 style.js (paleta, materiais, vento), light.js, entity-shadows.js (sombras falsas), follow.js (FPS)
-  input/                  contract.js (contrato de input), keyboard.js (teclado+mouse), gamepad.js (controle de videogame, vibração)
+  input/                  contract.js (contrato de input), keyboard.js (teclado+mouse pelo mapa do jogo), gamepad.js (controle, vibração)
   audio/engine.js         Web Audio: barramentos, primitivas, som posicional
   world/                  collision.js (grade de colisão), pathing.js (desvio, A*), noise.js, ground.js (chão/água que o jogo informa)
 src/shared/               peças prontas (copiadas do survivor)
@@ -70,7 +72,8 @@ src/shared/               peças prontas (copiadas do survivor)
 src/game/                 este jogo
   main.js                 liga tudo: renderer, luz, arena, câmera, teclado, controle, laço; Wire() conecta motor ↔ peças ↔ sons;
                           Impact() = tremor + vibração; Note() = aviso curto no alto da tela
-  game.js                 estado e regras (sem desenhar: o replay roda isto sem navegador)
+  game.js                 estado e regras (sem desenhar: o replay roda isto sem navegador): botão de rolar/correr, rolamento
+  hud.js                  barras na tela (página, não 3D): fôlego
   camera.js               câmera de cima em 3/4, fixa: segue o jogador olhando ~1,5 m à frente (antecipação); tremor (shake)
   config/balance.js       TODOS os números ajustáveis, comentados em português
   world/arena.js          arena de teste (S0): chão, muro, cruceiro, hórreo, carvalhos, pedras e uma casa
@@ -83,15 +86,19 @@ src/game/                 este jogo
 - Avisos (`engine/core/events.js`): as casas emitem `door-open`, `door-close`; o jogo toca o som.
   `impact` ({ kind: `heavy` | `critical` | `hitTaken` }) → `Impact()` em `main.js`: tremor de tela + vibração (`BALANCE.juice`).
   No S1 só a tecla T / botão Y (só no `npm run dev`) emitem; a partir do S3 os golpes emitem.
+  `roll` e `roll-land` (o jogo avisa; `main.js` toca o impulso e o baque). Passos e respiração ofegante: `BodySounds()` em `main.js`.
 - Peças de `shared` recebem os números como parâmetro: `UpdatePlayerMovement(p, dt, colliders, BALANCE.move)`.
 
 ## Contrato de input (proteger)
 Copiado do survivor. **Só ganha coisas, nunca muda** (para o co-op pelo celular funcionar depois).
 - `game.setInput(id, { mx, mz, ax, az, run, fire })` — mover (-1..1), mirar (-1..1), correr 0/1, `fire` só no mouse.
-- `game.act(id, ação)` — no S1 nenhuma ação faz efeito. Planejadas (DESIGN 3.7): `light`, `heavy`, `roll`, `parry`, `lock`, `heal`
+- `game.act(id, ação)` — faz efeito: `roll` (S2, rola na hora). Planejadas (DESIGN 3.7): `light`, `heavy`, `parry`, `lock`, `heal`
   (`use` e `swap` já existem). Bloquear (`guard`) é de segurar: entra como campo novo no `setInput`.
-- Teclado e controle mexem o mesmo jogador, id `'local'`. O controle manda o mesmo contrato (`engine/input/gamepad.js`);
-  os botões ficam em `BALANCE.pad` (`hold` = segurar → campo do `setInput`; `press` = apertar → `game.act`). Já mapeados com as ações do DESIGN 3.7.
+- `run` = **botão de rolar/correr segurado**. O jogo decide (`game.js`): soltar antes de `BALANCE.roll.tap` (0,25 s) rola; segurar mais corre.
+  O jogo guarda o que chegou em `p.raw` e monta `p.input` (o que o movimento copiado recebe).
+- Teclado e controle mexem o mesmo jogador, id `'local'`, e mandam o mesmo contrato (`engine/input/keyboard.js` e `gamepad.js`).
+  Os botões ficam em `BALANCE.keys` e `BALANCE.pad` (`hold` = segurar → campo do `setInput`; `press` = apertar → `game.act`).
+  Já mapeados com as ações do DESIGN 3.7.
 
 ## Decisões tomadas (não reabra sem perguntar ao dono)
 - Repositório próprio; peças copiadas do survivor (origem `e4314ee`). Conceito A (O Camiño das Ánimas), moeda cera.
@@ -124,8 +131,12 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
 
 ## Fatos que não são óbvios no código
 - O visual do jogador é o do **Samurai** do survivor (`BALANCE.player.look`), provisório até o peregrino.
-- A tecla **Shift** corre e o **Espaço** ainda chama `jump` (o survivor pula; aqui não faz nada). No S2 o Espaço vira rolar.
-- Controle: **segurar B** corre. No S2, tocar B rola (segurar continua correndo).
+- **Espaço** (teclado) e **B** (controle): tocar rola, segurar corre. Shift não corre mais: é o modificador do pesado e do aparo (DESIGN 3.7).
+  O mouse não mira mais (o teclado do survivor mirava; o deste jogo não manda `ax/az`).
+- Rolamento: usa a "investida" que o movimento copiado já sabia fazer (`dashT/dashA/dashV`); a velocidade cai em cosseno até parar.
+  Invulnerável = `p.safe`. A animação é a ação `roll` do `player.js` (cambalhota em volta do centro do corpo encolhido).
+- Fôlego: a recuperação espera `BALANCE.move.staminaDelay` sem gastar (`p.restT`); quem gasta fora do movimento zera `p.restT`.
+  Máximo = `p.staminaMax` (a barra cresce junto). Zerou: barra apagada, só corre de novo com 30.
 - O navegador só mostra o controle depois que alguém **aperta um botão** nele (não basta plugar). Aí aparece "Controle conectado".
   E só em página segura (https ou localhost: o Codespaces já é https); a prévia embutida do VS Code pode bloquear. Usar uma aba normal.
 - O controle é lido a cada quadro (`pad.poll()`, antes de `game.update`). Parado (stick na zona morta, nenhum botão de segurar)
@@ -133,7 +144,6 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
 - Vibração: Chrome e Edge vibram; Firefox não (o jogo segue sem erro).
 - **T** (teclado) e **Y** (controle) testam o tremor de um golpe pesado, **só no `npm run dev`**. Saem quando os golpes chegarem (S3).
 - `npm run check` roda no Windows também (o `sim.mjs` usa `pathToFileURL`).
-- Com o mouse apertado o jogador "mira" (anda devagar virado para o mouse): herança do survivor; sai quando o ataque do souls chegar.
 - Casas: a porta fica na frente (+z, virada para a câmera) quando `ry = 0`. Na arena, a casa `stone2` está em (-8, -8) e a porta em (-8, -4,6).
 - O replay só fixa o sorteio feito por código de `src/` (o Vite e o Three.js também sorteiam).
 - `window.__game` existe só no `npm run dev` (testes e depuração).
@@ -148,3 +158,6 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
   já mapeados, vibração, aviso de conectado). Câmera olha ~1,5 m à frente (compensando o atraso da suavidade) e ganha tremor.
   `BALANCE.camera` (lead…), `BALANCE.juice`, `BALANCE.pad`. Replay: +10 s com controle de mentira e a câmera no hash. Smoke: controle de mentira.
   `sim.mjs` passou a rodar no Windows.
+- **s2-folego-rolamento (S2)** — Espaço/B: tocar rola, segurar corre. Rolamento (16 de fôlego, 0,55 s, invulnerável 0,08–0,38 s, 3,5 m,
+  guarda de 0,25 s) com cambalhota nova no `player.js`. Fôlego espera 0,5 s para recuperar. Barra de fôlego (`hud.js`), passos,
+  respiração ofegante abaixo de 25. Teclado novo guiado por `BALANCE.keys` (o do survivor mirava com o mouse). Replay +12 s.
