@@ -37,6 +37,8 @@ npm run build    # gera dist/ (para hospedar)
      S1 (60–70 s) controle de mentira: stick pela metade (anda devagar), diagonal segurando B (corre), stick quase solto (parado).
      S2 (70–82 s) toques no botão de rolar (rola), 2º toque guardado, rolar até zerar o fôlego, segurar (corre), `act('roll')`.
      O hash conta também quantos rolamentos houve e quantos quadros invulneráveis.
+     S3 (82–98 s) vai até o boneco; combo de 3 (um aperto cedo demais é descartado), pesado, leve cancelado por rolamento
+     depois do impacto, golpes até zerar o fôlego. O hash conta golpes, dano e postura em cada alvo.
      **PR de organização tem de dar igual.** PR que muda a jogabilidade de propósito: `npm run check -- --update-sim` e dizer isso na descrição.
      Cada PR de jogabilidade acrescenta a sua cena ao roteiro. `SIM_TRACE=arquivo node scripts/sim.mjs` grava o rastro quadro a quadro.
 - `npm run smoke` — teste automático (~1 min). Compila, sobe a página na porta **5199**, abre no Chromium sem tela, anda com o teclado,
@@ -74,6 +76,8 @@ src/game/                 este jogo
                           Impact() = tremor + vibração; Note() = aviso curto no alto da tela
   game.js                 estado e regras (sem desenhar: o replay roda isto sem navegador): botão de rolar/correr, rolamento
   hud.js                  barras na tela (página, não 3D): fôlego
+  fx/trail.js             rastro da lâmina (só no instante de dano)
+  world/dummy.js          boneco de treino (pisca branco e balança ao levar golpe; não morre)
   camera.js               câmera de cima em 3/4, fixa: segue o jogador olhando ~1,5 m à frente (antecipação); tremor (shake)
   config/balance.js       TODOS os números ajustáveis, comentados em português
   world/arena.js          arena de teste (S0): chão, muro, cruceiro, hórreo, carvalhos, pedras e uma casa
@@ -84,15 +88,15 @@ src/game/                 este jogo
 - `SetGround(fn, água)` (`engine/world/ground.js`): o jogo diz a altura do chão e da água. Movimento e sangue perguntam ali.
 - `SetDeepTest(TooDeep)`: água funda bloqueia. `SetCameraSlope(s)`: inclinação da câmera para o recorte do telhado.
 - Avisos (`engine/core/events.js`): as casas emitem `door-open`, `door-close`; o jogo toca o som.
-  `impact` ({ kind: `heavy` | `critical` | `hitTaken` }) → `Impact()` em `main.js`: tremor de tela + vibração (`BALANCE.juice`).
-  No S1 só a tecla T / botão Y (só no `npm run dev`) emitem; a partir do S3 os golpes emitem.
+  `hit` ({ by, target, kind: `light` | `heavy` }) → som + `Impact(kind)` em `main.js`: tremor de tela (só pesado) + vibração (`BALANCE.juice`).
+  `swing` (a lâmina começou a cortar) → assobio. A pausa no impacto é do `game.js` (`stopT`: o `update` não roda; o desenho continua).
   `roll` e `roll-land` (o jogo avisa; `main.js` toca o impulso e o baque). Passos e respiração ofegante: `BodySounds()` em `main.js`.
 - Peças de `shared` recebem os números como parâmetro: `UpdatePlayerMovement(p, dt, colliders, BALANCE.move)`.
 
 ## Contrato de input (proteger)
 Copiado do survivor. **Só ganha coisas, nunca muda** (para o co-op pelo celular funcionar depois).
 - `game.setInput(id, { mx, mz, ax, az, run, fire })` — mover (-1..1), mirar (-1..1), correr 0/1, `fire` só no mouse.
-- `game.act(id, ação)` — faz efeito: `roll` (S2, rola na hora). Planejadas (DESIGN 3.7): `light`, `heavy`, `parry`, `lock`, `heal`
+- `game.act(id, ação)` — fazem efeito: `roll` (S2), `light`, `heavy` (S3). Planejadas (DESIGN 3.7): `parry`, `lock`, `heal`
   (`use` e `swap` já existem). Bloquear (`guard`) é de segurar: entra como campo novo no `setInput`.
 - `run` = **botão de rolar/correr segurado**. O jogo decide (`game.js`): soltar antes de `BALANCE.roll.tap` (0,25 s) rola; segurar mais corre.
   O jogo guarda o que chegou em `p.raw` e monta `p.input` (o que o movimento copiado recebe).
@@ -142,7 +146,13 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
 - O controle é lido a cada quadro (`pad.poll()`, antes de `game.update`). Parado (stick na zona morta, nenhum botão de segurar)
   ele não manda nada, para não apagar o teclado; ao soltar, manda "parado" uma vez.
 - Vibração: Chrome e Edge vibram; Firefox não (o jogo segue sem erro).
-- **T** (teclado) e **Y** (controle) testam o tremor de um golpe pesado, **só no `npm run dev`**. Saem quando os golpes chegarem (S3).
+- Ações (`roll`, `light`, `heavy`) passam por **uma fila só** (`p.queue`): a última apertada vale, guarda a direção do stick no aperto
+  e sai assim que der (rolar: `BALANCE.roll.buffer`; golpe: `BALANCE.attack.buffer`). Golpe começado não se cancela; o rolamento
+  cancela só depois do fim do instante de dano (`hit[1]`). Rolando ou atacando, o fôlego não recupera.
+- Golpe acerta cada alvo **uma vez**, só no instante de dano (`hit`), no alcance (até a borda do alvo, `e.r`) e dentro da abertura (`arc`).
+  Alvos = `game.targets` (hoje os bonecos; os inimigos entram no S5). Cada alvo tem `x, z, r, hit({ dmg, posture, dir, kind }), update(dt)`.
+- O 3º leve é uma estocada nova no kit do Samurai (`thrust`); o pesado também é novo (`heavy`). O rastro (`fx/trail.js`) usa a ponta
+  da espada (`model.muzzle`) e o meio do caminho até o peito.
 - `npm run check` roda no Windows também (o `sim.mjs` usa `pathToFileURL`).
 - Casas: a porta fica na frente (+z, virada para a câmera) quando `ry = 0`. Na arena, a casa `stone2` está em (-8, -8) e a porta em (-8, -4,6).
 - O replay só fixa o sorteio feito por código de `src/` (o Vite e o Three.js também sorteiam).
@@ -161,3 +171,6 @@ TypeScript, ECS, engine nova, React. Publicar qualquer coisa.
 - **s2-folego-rolamento (S2)** — Espaço/B: tocar rola, segurar corre. Rolamento (16 de fôlego, 0,55 s, invulnerável 0,08–0,38 s, 3,5 m,
   guarda de 0,25 s) com cambalhota nova no `player.js`. Fôlego espera 0,5 s para recuperar. Barra de fôlego (`hud.js`), passos,
   respiração ofegante abaixo de 25. Teclado novo guiado por `BALANCE.keys` (o do survivor mirava com o mouse). Replay +12 s.
+- **s3-ataques (S3)** — leve (combo de 3: dois cortes e uma estocada) e pesado (`BALANCE.attack`), fila única com guarda de 0,25 s,
+  compromisso, rolamento cancela depois do impacto, passo à frente, pausa no impacto, tremor no pesado, vibração, rastro da lâmina,
+  assobio e som do golpe. Boneco de treino em (0, 2). Animações novas `thrust` e `heavy` no `kits.js`. Saiu o teste de tremor (T/Y).

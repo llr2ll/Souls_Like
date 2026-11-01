@@ -15,6 +15,7 @@ import { sfx } from '../shared/audio/sfx'
 import { CreateGame } from './game'
 import { CreateCamera } from './camera'
 import { CreateHud } from './hud'
+import { CreateTrail } from './fx/trail'
 import { BuildArena } from './world/arena'
 import { BALANCE } from './config/balance'
 
@@ -27,6 +28,18 @@ function Wire(camera) {
   events.on('door-close', (d) => sfx('doorclose', d))
   events.on('roll', (p) => sfx('jump', { x: p.x, z: p.z })) // impulso com gemido curto
   events.on('roll-land', (p) => sfx('land', { x: p.x, z: p.z }))
+  events.on('swing', ({ p, kind }) => sfx('swing', { x: p.x, z: p.z, heavy: kind === 'heavy' })) // assobio da lâmina
+  events.on('hit', ({ x, z, kind }) => { sfx('slice', { x, z }); if (kind === 'heavy') sfx('stomp', { x, z }) })
+}
+
+// rastro da lâmina: uma amostra por quadro enquanto ela machuca (ponta da espada e o meio do caminho até o peito)
+const _tip = new THREE.Vector3(), _inner = new THREE.Vector3()
+function SampleTrail(trail, p) {
+  const A = p && p.atk
+  if (!A || A.t < A.def.hit[0] - 0.02 || A.t > A.def.hit[1] + 0.02) return
+  p.model.muzzle(_tip)
+  _inner.set(p.x, p.y + 1.25, p.z).lerp(_tip, 0.45)
+  trail.add(_tip, _inner)
 }
 
 // passos (um a cada passada do boneco: andando ~0,9 m, correndo ~1,5 m) e respiração ofegante com pouco fôlego
@@ -77,24 +90,18 @@ export async function LoadGame() {
 
   const game = CreateGame(scene)
   game.addPlayer('local', 'Peregrino') // sem menu: teclado e controle mexem o mesmo jogador
-  const DEV = import.meta.env.DEV
-  // só no npm run dev: T (teclado) e Y (controle) testam o tremor de um golpe pesado, até os golpes chegarem (S3)
-  const act = (id, a) => (DEV && a === 'tremor' ? events.emit('impact', { kind: 'heavy' }) : game.act(id, a))
-  const input = { players: game.players, setInput: game.setInput, act }
-  BindKeyboard(input, { ...BALANCE.keys, press: { ...BALANCE.keys.press, ...(DEV && { t: 'tremor' }) } })
+  const input = { players: game.players, setInput: game.setInput, act: game.act }
+  BindKeyboard(input, BALANCE.keys)
   const help = document.getElementById('help')
-  const HELP = {
-    keys: help.textContent + (DEV ? ' · T testa o tremor' : ''),
-    pad: 'Controle: stick esquerdo anda · B: tocar rola, segurar corre' + (DEV ? ' · Y testa o tremor' : ''),
-  }
-  help.textContent = HELP.keys
-  const pad = BindGamepad(input, { ...BALANCE.pad, press: { ...BALANCE.pad.press, ...(DEV && { Y: 'tremor' }) } }, (name) => {
+  const HELP = { keys: help.textContent, pad: 'Controle: stick anda · B: tocar rola, segurar corre · RB leve · RT pesado' }
+  const pad = BindGamepad(input, BALANCE.pad, (name) => {
     help.textContent = name ? HELP.pad : HELP.keys
     Note(name ? `Controle conectado: ${name}` : 'Controle desconectado')
   })
-  events.on('impact', (d) => Impact(d.kind, camera, pad))
+  events.on('hit', (d) => Impact(d.kind, camera, pad)) // golpe acertou: tremor (só o pesado) e vibração
   const hud = CreateHud(BALANCE.hud)
-  if (DEV) window.__game = game // só no npm run dev: para testes automáticos e depuração
+  const trail = CreateTrail(scene, BALANCE.juice.trail)
+  if (import.meta.env.DEV) window.__game = game // só no npm run dev: para testes automáticos e depuração
 
   addEventListener('resize', () => {
     camera.resize(target.offsetWidth / target.offsetHeight)
@@ -112,6 +119,8 @@ export async function LoadGame() {
     camera.update(dt, list[0])
     hud.update(list[0])
     BodySounds(dt, list[0])
+    SampleTrail(trail, list[0])
+    trail.update(dt)
     UpdateBuildings(list) // dentro de casa (ou atrás dela): o telhado some
     renderer.render(scene, camera.cam)
     Fps()

@@ -1,5 +1,6 @@
 // Teste de fumaça: compila o jogo, sobe a página numa porta própria (5199, não briga com o npm run dev),
-// abre num navegador sem tela, anda com o teclado (WASD; Espaço segurado corre, tocado rola), entra na casa, joga com um
+// abre num navegador sem tela, bate no boneco de treino (cliques, Shift + clique), anda com o teclado
+// (WASD; Espaço segurado corre, tocado rola), entra na casa, joga com um
 // controle de mentira (stick, segurar e tocar B, todos os botões, desconectar) e FALHA se aparecer erro no console.
 // Capturas e log ficam em smoke/ (versionados: o PR mostra as capturas).
 // Sem placa de vídeo o jogo roda a poucos FPS: serve para pegar erro de carregar/iniciar/teclas, não bugs de longo prazo.
@@ -74,31 +75,37 @@ async function play(page) {
 
   const t0 = Date.now()
   await shot('01-inicio.jpg')
+  // até o boneco de treino (logo à frente da largada) e bater: 3 cliques (combo leve) e Shift + clique (pesado)
+  await hold(['w'], 1200)
+  for (let i = 0; i < 3; i++) { await page.mouse.click(480, 270); await wait(300) }
+  await k.down('Shift'); await page.mouse.click(480, 270); await k.up('Shift')
+  await wait(450)
+  await shot('02-golpe.jpg')
+  await wait(800)
   // andar, correr (segurar Espaço), rolar (tocar Espaço), ir até a porta da casa (fica a noroeste da largada) e entrar
-  await hold(['w'], 1500)
   await hold(['Space', 'd'], 1500)
   await k.down('a')
   for (let i = 0; i < 3; i++) {
     await k.down('Space'); await wait(90); await k.up('Space')
-    if (i === 0) { await wait(120); await shot('02-rolando.jpg') } else await wait(700)
+    if (i === 0) { await wait(120); await shot('03-rolando.jpg') } else await wait(700)
   }
   await k.up('a')
   await hold(['a'], 1000)
   await hold(['w', 'a'], 2500)
   await hold(['w'], 2500)
-  await shot('03-casa.jpg')
+  await shot('04-casa.jpg')
   // controle: conecta (aviso no alto da tela), anda com o stick, corre segurando B, aperta os botões e desconecta
   const pad = (fn) => page.evaluate(fn)
   await pad(() => { window.__pad.on = true; window.__pad.pad.axes[0] = 1 })
   await wait(2000)
-  await shot('04-controle.jpg')
+  await shot('05-controle.jpg')
   await pad(() => { const p = window.__pad.pad; p.axes[0] = 0; p.axes[1] = 1; p.buttons[1].value = 1 })
   await wait(2000)
   // toques curtos em B: rola
   for (let i = 0; i < 2; i++) { await pad(() => { window.__pad.pad.buttons[1].value = 0 }); await wait(400); await pad(() => { window.__pad.pad.buttons[1].value = 1 }); await wait(90) }
   await pad(() => { const p = window.__pad.pad; p.axes[1] = 0; p.buttons[1].value = 0 })
   await wait(700)
-  await shot('05-folego.jpg')
+  await shot('06-folego.jpg')
   await pad(() => { for (const b of window.__pad.pad.buttons) b.value = 1 })
   await wait(600)
   await pad(() => { for (const b of window.__pad.pad.buttons) b.value = 0 })
@@ -107,7 +114,7 @@ async function play(page) {
   // resto do tempo: anda em volta (bate no muro e nas peças)
   const keys = ['s', 'd', 'w', 'a']
   for (let i = 0; Date.now() - t0 < PLAY_SECONDS * 1000; i++) await hold([keys[i % 4]], 900)
-  await shot('06-fim.jpg')
+  await shot('07-fim.jpg')
 }
 
 // controle de mentira: o navegador sem tela não tem controle, e o jogo só lê navigator.getGamepads() a cada quadro

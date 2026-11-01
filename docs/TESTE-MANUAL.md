@@ -19,12 +19,12 @@ Cada PR acrescenta os itens dele aqui.
 | 7 | **Atrás da casa**: dê a volta e fique atrás dela | A parte da casa que tapava você fica baixinha (você continua visível) | ☐ |
 | 8 | **Som**: aperte M | Liga/desliga o som (a porta faz barulho ao abrir e fechar) | ☐ |
 | 9 | **Câmera olha à frente** (S1): ande reto para um lado por uns segundos, depois pare | Andando, o peregrino fica um pouco atrás do meio da tela: aparece mais chão do lado para onde ele vai. Parado, a câmera volta devagar a centralizar, sem tranco | ☐ |
-| 10 | **Tremor** (S1, só no `npm run dev`): aperte T | A tela dá um tranco curto e fraco e volta sozinha (é o tremor de um golpe pesado; os golpes chegam no S3) | ☐ |
+| 10 | **Boneco de treino** (S3): logo à frente de onde você começa | Um poste com saco de palha. Ele não deixa passar | ☐ |
 | 11 | **Conectar o controle** (S1): plugue (USB ou Bluetooth) e aperte qualquer botão. Use o jogo numa aba normal do Chrome ou Edge (a prévia dentro do VS Code pode não enxergar o controle) | Aviso "Controle conectado: …" no alto da tela. A ajuda no canto de baixo muda para os botões do controle | ☐ |
 | 12 | **Stick esquerdo**: incline pouco, depois tudo, depois solte | Pouco: anda devagar. Tudo: anda normal. Solto: para (não fica andando sozinho) | ☐ |
 | 13 | **Segure B** andando | Corre, igual a segurar Espaço (correndo muito tempo, cansa) | ☐ |
-| 14 | **Aperte Y** | Mesmo tranco do item 10 e o controle vibra rapidinho (no Firefox não vibra) | ☐ |
-| 15 | **Outros botões** (A, X, RB, RT, LT, R3, direcional) | Nada acontece ainda, e o jogo não trava | ☐ |
+| 14 | **RB perto do boneco** | Golpe leve; o controle vibra rapidinho ao acertar (no Firefox não vibra) | ☐ |
+| 15 | **Outros botões** (A, X, LT, R3, direcional) | Nada acontece ainda, e o jogo não trava | ☐ |
 | 16 | **Desligar o controle** (ou tirar o cabo) | Aviso "Controle desconectado". O teclado continua funcionando | ☐ |
 | 17 | **Rolar** (S2): ande e toque Espaço (ou B) rapidinho | Ele dá uma cambalhota para o lado em que você anda (~3,5 m), com um "hup" e um baque no fim. A barra verde perde um pedaço | ☐ |
 | 18 | **Rolar parado** | Rola para a frente (para onde ele está virado) | ☐ |
@@ -32,6 +32,13 @@ Cada PR acrescenta os itens dele aqui.
 | 20 | **Rolar até cansar**: toque várias vezes seguidas | Rola enquanto houver qualquer pedaço de verde. Sem verde, não rola. Com pouco fôlego, ele respira ofegante | ☐ |
 | 21 | **Fôlego volta**: pare depois de rolar | A barra espera meio segundo e então enche rápido | ☐ |
 | 22 | **Rolar contra o muro** | Ele para no muro (não atravessa) | ☐ |
+| 23 | **Golpe leve** (S3): perto do boneco, clique (ou RB) 3 vezes no ritmo | Dois cortes e uma estocada. Cada acerto: o boneco pisca branco, balança, um "tchac", e o jogo dá uma travadinha de nada (é de propósito: peso) | ☐ |
+| 24 | **Rastro**: olhe a lâmina no golpe | Uma fita clara aparece só no instante em que a lâmina corta, e some rápido | ☐ |
+| 25 | **Golpe pesado**: Shift + clique (ou RT) | Ergue a espada, segura um instante e desce com tudo. Acertando: travadinha maior e a tela treme de leve | ☐ |
+| 26 | **Compromisso**: comece um golpe e tente andar | Não anda até o golpe acabar (só dá um passinho para a frente) | ☐ |
+| 27 | **Cancelar com rolamento**: golpe e logo depois do impacto toque Espaço | Rola na hora. Se tocar antes do impacto, o rolamento espera o impacto | ☐ |
+| 28 | **Guardar o próximo golpe**: clique de novo pouco antes do fim de um golpe | O próximo sai emendado. Clicando cedo demais, o clique é ignorado | ☐ |
+| 29 | **Fôlego**: bata sem parar | Cada golpe gasta verde; com qualquer verde ainda bate; sem verde, espera. Durante golpes e rolamentos o verde não volta | ☐ |
 
 ## Anotar o FPS
 O FPS aparece em verde no canto de cima, à direita. Anote depois de 1 minuto andando pela arena.

@@ -6,13 +6,15 @@
 // stick todo na diagonal segurando B (corre), stick quase solto (fica parado). A câmera acompanha o tempo todo (antecipação).
 // S2 (70–82 s): toca o botão de rolar (rola), rola duas vezes seguidas (a 2ª fica guardada), rola até o fôlego acabar,
 // segura o botão (corre), rola pela ação 'roll' sem direção (para a frente) e espera o fôlego voltar.
+// S3 (82–98 s): vai até o boneco de treino; combo de 3 leves (um aperto cedo demais é descartado), pesado, leve cancelado
+// por um rolamento depois do impacto, volta e bate até o fôlego acabar. O hash conta golpes e dano no boneco.
 // Cada PR que cria jogabilidade acrescenta a sua cena ao roteiro.
 // Rode sempre em processo novo (node scripts/sim.mjs): o Three.js e o Vite guardam estado entre rodadas.
 // SIM_TRACE=arquivo grava um rastro quadro a quadro (para achar onde dois replays se separam).
 // (Mecanismo copiado do survivor e4314ee; o roteiro é deste jogo.)
 import { createHash } from 'node:crypto'
 
-export async function SimFingerprint(vite, frames = 2460) {
+export async function SimFingerprint(vite, frames = 2940) {
   // o motor de áudio registra teclas ao carregar; fora do navegador isso não existe
   globalThis.addEventListener ??= () => {}
   // sorteio e relógio fixos
@@ -64,7 +66,17 @@ export async function SimFingerprint(vite, frames = 2460) {
     for (let f = 0; f < frames; f++) {
       now += dt * 1000
       let mx, mz, run = 0
-      if (f >= 2100) {
+      if (f >= 2460) {
+        // S3: [quadro]: [ação, mx, mz] — o stick no aperto decide a direção do golpe
+        const spot = { x: 0, z: 3.7 }
+        const PRESS = { 2645: ['light', 0, -1], 2647: ['light', 0, -1], 2654: ['light', 0, -1], 2664: ['light', 0, -1], 2700: ['heavy', 0, -1],
+          2745: ['light', 0, -1], 2748: ['roll', 0, 1] }
+        for (let g = 2800; g < 2900; g += 5) PRESS[g] = ['light', 0, -1]
+        ;[mx, mz] = (f < 2645 || (f >= 2770 && f < 2800)) ? toward(spot) : [0, 0]
+        const pr = PRESS[f]
+        game.setInput('local', { mx: pr ? pr[1] : mx, mz: pr ? pr[2] : mz, ax: 0, az: 0, run: 0 })
+        if (pr) game.act('local', pr[0])
+      } else if (f >= 2100) {
         // S2: [quadro de início, mx, mz, botão de rolar/correr]. Tocar = 3 quadros (0,1 s) segurando
         const S2 = [[2100, 0, 0, 0], [2130, -1, 0, 1], [2133, -1, 0, 0], [2170, 0, 1, 1], [2173, 0, 1, 0], [2183, 0, 1, 1], [2185, 0, 1, 0],
           ...[0, 1, 2, 3, 4, 5, 6, 7].flatMap((i) => [[2220 + i * 18, i % 2 ? 1 : -1, -0.3, 1], [2223 + i * 18, i % 2 ? 1 : -1, -0.3, 0]]),
@@ -89,7 +101,7 @@ export async function SimFingerprint(vite, frames = 2460) {
       camera.update(dt, p)
       if (p.safe) safeFrames++
       const c = camera.cam.position
-      if (trace) trace.push(`${f} r${calls} ${p.x.toFixed(4)},${p.z.toFixed(4)},${p.gy.toFixed(3)},${p.lv},${p.stamina.toFixed(2)} cam ${c.x.toFixed(4)},${c.z.toFixed(4)} roll ${p.rollT.toFixed(3)}${p.safe ? ' safe' : ''}${p.running ? ' run' : ''}`)
+      if (trace) trace.push(`${f} r${calls} ${p.x.toFixed(4)},${p.z.toFixed(4)},${p.gy.toFixed(3)},${p.lv},${p.stamina.toFixed(2)} cam ${c.x.toFixed(4)},${c.z.toFixed(4)} roll ${p.rollT.toFixed(3)}${p.safe ? ' safe' : ''}${p.running ? ' run' : ''}${p.atk ? ` atk ${p.atk.kind}${p.atk.n} ${p.atk.t.toFixed(3)}` : ''} dmg ${game.targets[0].dmg}`)
     }
     if (trace) (await import('node:fs')).writeFileSync(process.env.SIM_TRACE, trace.join('\n'))
     const r = (v) => (typeof v === 'number' ? Math.round(v * 1e6) / 1e6 : v)
@@ -98,9 +110,11 @@ export async function SimFingerprint(vite, frames = 2460) {
       door: door ? [r(door.x), r(door.z)] : null,
       camera: [r(camera.cam.position.x), r(camera.cam.position.y), r(camera.cam.position.z)],
       rolls, safeFrames,
+      targets: game.targets.map((e) => [e.id, e.hits, e.dmg, e.posture]),
     }
     const [, x, z, , lv, st] = state.players[0]
-    return { hash: createHash('sha256').update(JSON.stringify(state)).digest('hex'), summary: `jogador em (${x.toFixed(2)}, ${z.toFixed(2)}) · andar ${lv} · fôlego ${Math.round(st)} · ${rolls} rolamentos${door ? '' : ' · casa sem porta?'}` }
+    const t0 = game.targets[0]
+    return { hash: createHash('sha256').update(JSON.stringify(state)).digest('hex'), summary: `jogador em (${x.toFixed(2)}, ${z.toFixed(2)}) · andar ${lv} · fôlego ${Math.round(st)} · ${rolls} rolamentos · boneco: ${t0.hits} golpes, ${t0.dmg} de dano${door ? '' : ' · casa sem porta?'}` }
   } finally {
     Math.random = realRandom
     Error.stackTraceLimit = realLimit

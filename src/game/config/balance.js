@@ -33,6 +33,22 @@ export const BALANCE = {
     buffer: 0.25, // apertou rolar até tanto tempo (s) antes de poder: fica guardado e sai na hora certa
   },
 
+  // Ataques com a espada (DESIGN 3.2). time = duração do golpe (s); hit = [começo, fim] do instante em que a lâmina machuca (s);
+  // range = alcance (m, até a borda do alvo); arc = metade da abertura (graus: 60 = 60° para cada lado); lunge = passo à frente (m)
+  attack: {
+    light: [ // combo de 3: o 3º é uma estocada (abertura estreita)
+      { anim: 'slash1', time: 0.38, hit: [0.13, 0.22], dmg: 12, posture: 10, range: 2.4, arc: 60, stamina: 12, lunge: 0.35 },
+      { anim: 'slash2', time: 0.38, hit: [0.13, 0.22], dmg: 12, posture: 10, range: 2.4, arc: 60, stamina: 12, lunge: 0.35 },
+      { anim: 'thrust', time: 0.52, hit: [0.22, 0.31], dmg: 16, posture: 14, range: 2.4, arc: 35, stamina: 12, lunge: 0.55 },
+    ],
+    heavy: { anim: 'heavy', time: 0.9, hit: [0.45, 0.57], dmg: 22, posture: 20, range: 2.6, arc: 50, stamina: 24, lunge: 0.6 },
+    combo: 0.8, // depois de um golpe leve, tanto tempo (s) para o próximo leve continuar o combo (senão volta ao 1º)
+    buffer: 0.25, // apertou até tanto tempo (s) antes do fim do golpe: fica guardado e sai na hora certa
+  },
+
+  // Bonecos de treino (S3): onde ficam na arena. Não morrem
+  dummies: [{ x: 0, z: 2 }],
+
   // Barras na tela
   hud: {
     px: 2, // pixels por ponto de fôlego (fôlego maior = barra mais comprida, como nos souls)
@@ -52,12 +68,15 @@ export const BALANCE = {
     shakeMax: 0.4, // tremor máximo, somando vários ao mesmo tempo (m)
   },
 
-  // Sensação de impacto (DESIGN 8). Por enquanto só a tecla T / botão Y testam (no npm run dev); os golpes chegam no S3
+  // Sensação de impacto (DESIGN 8): cada golpe que acerta. light = leve, heavy = pesado
   juice: {
-    // tremor de tela: quanto a câmera balança (m) em cada caso, e por quanto tempo (s). scale 0 desliga todos
+    // pausa no impacto: o jogo congela por tanto tempo (s) quando o golpe acerta. 0 desliga
+    hitStop: { light: 0.03, heavy: 0.07, critical: 0.12, parry: 0.12 },
+    // tremor de tela: quanto a câmera balança (m) em cada caso, e por quanto tempo (s). scale 0 desliga todos. Leve não treme
     shake: { scale: 1, time: 0.25, heavy: 0.1, critical: 0.18, hitTaken: 0.15 },
     // vibração do controle: [motor forte, motor fraco (0 a 1), duração (ms)]. scale 0 desliga
-    rumble: { scale: 1, heavy: [0.35, 0.5, 110], critical: [0.7, 0.8, 200], hitTaken: [0.6, 0.6, 160] },
+    rumble: { scale: 1, light: [0.05, 0.3, 50], heavy: [0.35, 0.5, 110], critical: [0.7, 0.8, 200], hitTaken: [0.6, 0.6, 160] },
+    trail: 0.12, // rastro da lâmina: some em tanto tempo (s). Só aparece no instante em que a lâmina machuca
   },
 
   // Controle de videogame (DESIGN 3.7). Nomes no padrão Xbox: A B X Y · LB RB (ombros) · LT RT (gatilhos) · L3 R3 (apertar o stick)
